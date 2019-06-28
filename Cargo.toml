@@ -1,0 +1,10 @@
+[package]
+name = "icfpc2019"
+version = "0.1.0"
+authors = ["Nikita Prokopov <niki@tonsky.me>"]
+edition = "2018"
+exclude = ["problems/*"]
+
+[dependencies]
+regex = "1"
+lazy_static = "1"

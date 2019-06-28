@@ -1,0 +1,150 @@
+prob-001 - simple randomly generated polygon
+prob-002 - simple randomly generated polygon
+prob-003 - simple randomly generated polygon
+prob-004 - simple randomly generated polygon
+prob-005 - simple randomly generated polygon
+prob-006 - simple randomly generated polygon
+prob-007 - simple randomly generated polygon
+prob-008 - simple randomly generated polygon
+prob-009 - simple randomly generated polygon
+prob-010 - simple randomly generated polygon
+prob-011 - random polygon within 30x30 box
+prob-012 - random polygon within 30x30 box
+prob-013 - random polygon within 30x30 box
+prob-014 - random polygon within 30x30 box
+prob-015 - random polygon within 30x30 box
+prob-016 - random polygon within 30x30 box
+prob-017 - random polygon within 30x30 box
+prob-018 - random polygon within 30x30 box
+prob-019 - random polygon within 30x30 box
+prob-020 - random polygon within 30x30 box
+prob-021 - random polygon within 50x50 box
+prob-022 - random polygon within 50x50 box
+prob-023 - random polygon within 50x50 box
+prob-024 - random polygon within 50x50 box
+prob-025 - random polygon within 50x50 box
+prob-026 - random polygon within 50x50 box
+prob-027 - random polygon within 50x50 box
+prob-028 - random polygon within 50x50 box
+prob-029 - random polygon within 50x50 box
+prob-030 - random polygon within 50x50 box
+prob-031 - random polygon within 50x50 box
+prob-032 - random polygon within 50x50 box
+prob-033 - random polygon within 50x50 box
+prob-034 - random polygon within 50x50 box
+prob-035 - random polygon within 50x50 box
+prob-036 - random polygon within 50x50 box
+prob-037 - random polygon within 50x50 box
+prob-038 - random polygon within 50x50 box
+prob-039 - random polygon within 50x50 box
+prob-040 - random polygon within 50x50 box
+prob-041 - random polygon within 50x50 box
+prob-042 - random polygon within 50x50 box
+prob-043 - random polygon within 50x50 box
+prob-044 - random polygon within 50x50 box
+prob-045 - random polygon within 50x50 box
+prob-046 - random polygon within 50x50 box
+prob-047 - random polygon within 50x50 box
+prob-048 - random polygon within 50x50 box
+prob-049 - random polygon within 50x50 box
+prob-050 - random polygon within 50x50 box
+prob-051 - andorra (100x100)
+prob-052 - argentina (100x100)
+prob-053 - armenia (100x100)
+prob-054 - austria (100x100)
+prob-055 - belgium (100x100)
+prob-056 - estonia (100x100)
+prob-057 - france (100x100)
+prob-058 - iran (100x100)
+prob-059 - luxembourg (100x100)
+prob-060 - mexico (100x100)
+prob-061 - montenegro (100x100)
+prob-062 - serbia (100x100)
+prob-063 - singapore (100x100)
+prob-064 - slovenia (100x100)
+prob-065 - south_korea (100x100)
+prob-066 - switzerland (100x100)
+prob-067 - tajikistan (100x100)
+prob-068 - thailand (100x100)
+prob-069 - ukraine (100x100)
+prob-070 - united_kingdom (100x100)
+prob-071 - random polygon within 100x100 box
+prob-072 - random polygon within 100x100 box
+prob-073 - random polygon within 100x100 box
+prob-074 - random polygon within 100x100 box
+prob-075 - random polygon within 100x100 box
+prob-076 - random polygon within 100x100 box
+prob-077 - random polygon within 100x100 box
+prob-078 - random polygon within 100x100 box
+prob-079 - random polygon within 100x100 box
+prob-080 - random polygon within 100x100 box
+prob-081 - random polygon within 100x100 box
+prob-082 - random polygon within 100x100 box
+prob-083 - random polygon within 100x100 box
+prob-084 - random polygon within 100x100 box
+prob-085 - random polygon within 100x100 box
+prob-086 - random polygon within 100x100 box
+prob-087 - random polygon within 100x100 box
+prob-088 - random polygon within 100x100 box
+prob-089 - random polygon within 100x100 box
+prob-090 - random polygon within 100x100 box
+prob-091 - random polygon within 100x100 box
+prob-092 - random polygon within 100x100 box
+prob-093 - random polygon within 100x100 box
+prob-094 - random polygon within 100x100 box
+prob-095 - random polygon within 100x100 box
+prob-096 - random polygon within 100x100 box
+prob-097 - random polygon within 100x100 box
+prob-098 - random polygon within 100x100 box
+prob-099 - random polygon within 100x100 box
+prob-100 - random polygon within 100x100 box
+prob-101 - australia (200x200)
+prob-102 - brazil (200x200)
+prob-103 - bulgaria (200x200)
+prob-104 - canada (200x200)
+prob-105 - finland (200x200)
+prob-106 - hungary (200x200)
+prob-107 - iceland (200x200)
+prob-108 - ireland (200x200)
+prob-109 - macedonia (200x200)
+prob-110 - netherlands (200x200)
+prob-111 - poland (200x200)
+prob-112 - romania (200x200)
+prob-113 - slovakia (200x200)
+prob-114 - spain (200x200)
+prob-115 - sweden (200x200)
+prob-116 - tunisia (200x200)
+prob-117 - turkey (200x200)
+prob-118 - usa (200x200)
+prob-119 - vatican (200x200)
+prob-120 - zambia (200x200)
+prob-121 - random polygon within 200x200 box
+prob-122 - random polygon within 200x200 box
+prob-123 - random polygon within 200x200 box
+prob-124 - random polygon within 200x200 box
+prob-125 - random polygon within 200x200 box
+prob-126 - random polygon within 200x200 box
+prob-127 - random polygon within 200x200 box
+prob-128 - random polygon within 200x200 box
+prob-129 - random polygon within 200x200 box
+prob-130 - random polygon within 200x200 box
+prob-131 - random polygon within 200x200 box
+prob-132 - random polygon within 200x200 box
+prob-133 - random polygon within 200x200 box
+prob-134 - random polygon within 200x200 box
+prob-135 - random polygon within 200x200 box
+prob-136 - random polygon within 200x200 box
+prob-137 - random polygon within 200x200 box
+prob-138 - random polygon within 200x200 box
+prob-139 - random polygon within 200x200 box
+prob-140 - random polygon within 200x200 box
+prob-141 - random polygon within 200x200 box
+prob-142 - random polygon within 200x200 box
+prob-143 - random polygon within 200x200 box
+prob-144 - random polygon within 200x200 box
+prob-145 - random polygon within 200x200 box
+prob-146 - random polygon within 200x200 box
+prob-147 - random polygon within 200x200 box
+prob-148 - random polygon within 200x200 box
+prob-149 - random polygon within 200x200 box
+prob-150 - USS Enterprise (200x200)
