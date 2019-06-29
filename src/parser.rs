@@ -1,7 +1,7 @@
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::cmp;
-use std::collections::{HashMap};
+use std::collections::{HashSet, HashMap};
 use crate::{ Point, Line, Cell, Bonus, Drone, Level };
 
 lazy_static! {
@@ -30,20 +30,18 @@ fn parse_bonus(s: &str) -> (Point, Bonus) {
      })
 }
 
-fn parse_contour(s: &str) -> Vec<Line> {
+fn parse_contour(s: &str) -> HashSet<Point> {
     let points: Vec<Point> = POINT_RE.find_iter(s).map(|m| parse_point(m.as_str())).collect();
-    let mut lines: Vec<Line> = Vec::with_capacity(points.len() / 2);
+    let mut walls: HashSet<Point> = HashSet::with_capacity(points.len());
     for (i, &p1) in points.iter().enumerate() {
         let p2 = points[(i+1) % points.len()];
-        if p1.y != p2.y { // vercical only
-            if p1.y < p2.y { // arrange bottom up
-                lines.push(Line{from: p1, to: p2});
-            } else {
-                lines.push(Line{from: p2, to: p1});
+        if p1.x == p2.x { // vercical only
+            for y in if p1.y < p2.y { p1.y .. p2.y } else { p2.y .. p1.y } {
+                walls.insert(Point::from_isize(p1.x, y));
             }
         }
     }
-    lines
+    walls
 }
 
 fn wall_on_left(x: usize, y: usize, walls: &Vec<Line>) -> bool {
@@ -52,25 +50,26 @@ fn wall_on_left(x: usize, y: usize, walls: &Vec<Line>) -> bool {
         && l.to.y >= (y + 1) as isize)
 }
 
-fn build_level(walls: &Vec<Line>) -> Level {
-    let height = walls.iter().max_by_key(|l| l.to.y).unwrap().to.y as usize;
-    let line = walls.iter().max_by_key(|l| cmp::max(l.from.x, l.to.x)).unwrap();
-    let width = cmp::max(line.from.x, line.to.x) as usize;
+fn build_level(walls: &HashSet<Point>) -> Level {
+    let height = walls.iter().max_by_key(|p| p.y).unwrap().y as usize;
+    let width = walls.iter().max_by_key(|p| p.x).unwrap().x as usize;
     let mut grid = Vec::with_capacity(width * height);
     for y in 0..height {
         let mut last_cell = Cell::BLOCKED;
         for x in 0..width {
-            if wall_on_left(x, y, walls) {
+            if walls.contains(&Point::from_usize(x, y)) {
                 last_cell = if last_cell == Cell::EMPTY { Cell::BLOCKED } else { Cell::EMPTY };
             }
             grid.push(last_cell);
         }
-        assert_eq!(wall_on_left(width, y, walls), Cell::EMPTY == last_cell);
+        assert_eq!(walls.contains(&Point::from_usize(width, y)), Cell::EMPTY == last_cell);
     }
-    Level { grid, width, height,
+    Level {
+        grid, width, height,
         bonuses: HashMap::new(),
         picked: HashMap::new(),
-        drones: Vec::with_capacity(1) }
+        drones: Vec::with_capacity(1)
+    }
 }
 
 
@@ -78,8 +77,10 @@ pub fn parse_level(file: &str) {
     let fragments: Vec<&str> = file.split("#").collect();
     match *fragments {
         [walls_str, start_str, obstacles_str, bonuses_str] => {
-            let mut walls: Vec<Line> = parse_contour(walls_str);
-            walls.extend(obstacles_str.split(";").flat_map(|s| parse_contour(s)));
+            let mut walls = parse_contour(walls_str);
+            for obstacle_str in obstacles_str.split(";") {
+                walls.extend(parse_contour(obstacle_str));
+            }
             let mut level = build_level(&walls);
             for (pos, bonus) in bonuses_str.split(";").map(|s| parse_bonus(s)) {
                 level.bonuses.insert(pos, bonus);
