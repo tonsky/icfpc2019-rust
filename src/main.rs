@@ -26,7 +26,7 @@ enum Cell { EMPTY, BLOCKED, WRAPPED }
 enum Action { UP, RIGHT, DOWN, LEFT }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-enum Bonus { HAND, WHEELS, DRILL, TELEPORT, CLONE, SPAWN, BEACON }
+enum Bonus { HAND, WHEELS, DRILL, TELEPORT, CLONE }
 
 pub struct Drone {
     pos:    Point,
@@ -67,12 +67,14 @@ impl Drone {
 }
 
 pub struct Level {
-    grid:    Vec<Cell>,
-    width:   isize,
-    height:  isize,
-    empty:   usize,
-    bonuses: HashMap<Point, Bonus>,
-    picked:  HashMap<Bonus, usize>
+    grid:      Vec<Cell>,
+    width:     isize,
+    height:    isize,
+    empty:     usize,
+    spawns:    HashSet<Point>,
+    beakons:   HashSet<Point>,
+    bonuses:   HashMap<Point, Bonus>,
+    collected: HashMap<Bonus, usize>
 }
 
 impl Level {
@@ -122,11 +124,13 @@ fn print(level: &Level, drones: &Vec<Drone>) {
                         Bonus::HAND     => { "B" }
                         Bonus::WHEELS   => { "F" }
                         Bonus::DRILL    => { "L" }
-                        Bonus::SPAWN    => { "X" }
                         Bonus::TELEPORT => { "R" }
-                        Bonus::BEACON   => { "T" }
                         Bonus::CLONE    => { "C" }
                     })
+                } else if level.spawns.contains(&point) {
+                    String::from("X")
+                } else if level.beakons.contains(&point) {
+                    String::from("T")
                 } else {
                     String::from(match level.get_cell(x, y) {
                         Cell::EMPTY   => { "░" }
@@ -167,10 +171,9 @@ struct Plan {
 }
 
 fn max_wrapping(level: &Level, p: &Point) -> f64 {
-    match level.get_cell(p.x, p.y) {
-        Cell::EMPTY => { 1. }
-        _ => { 0. }
-    }
+    if Cell::EMPTY != level.get_cell(p.x, p.y) { 0. }
+    else if level.bonuses.contains_key(p) { 100. }
+    else { 1. }
 }
 
 fn explore<F>(level: &Level, drone: &Drone, rate: F) -> Option<VecDeque<Action>>
@@ -222,6 +225,17 @@ fn explore<F>(level: &Level, drone: &Drone, rate: F) -> Option<VecDeque<Action>>
     }
 }
 
+fn collect(level: &mut Level, drone: &Drone) {
+    if let Some(bonus) = level.bonuses.get(&drone.pos) {
+        if let Some(collected) = level.collected.get_mut(bonus) {
+            *collected += 1;
+        } else {
+            level.collected.insert(*bonus, 1);
+        }
+        level.bonuses.remove(&drone.pos);
+    }
+}
+
 fn solve(level: &mut Level, drones: &mut Vec<Drone>, debug: bool) -> String {
     
     if debug {
@@ -237,6 +251,7 @@ fn solve(level: &mut Level, drones: &mut Vec<Drone>, debug: bool) -> String {
 
             let mut drone = &mut drones[drone_idx];
             mark_level(level, &drone);
+            collect(level, &drone);
             
             if drone.plan.is_empty() {
                 if let Some(plan) = explore(level, drone, max_wrapping) {
@@ -253,6 +268,7 @@ fn solve(level: &mut Level, drones: &mut Vec<Drone>, debug: bool) -> String {
             if debug {
                 print!("\x1B[1J");
                 print(level, &drones);
+                println!("Collected {:?}", level.collected);
                 println!("Step {}, empty {}", step, level.empty);
                 thread::sleep(time::Duration::from_millis(DELAY));
             }

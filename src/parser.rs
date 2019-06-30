@@ -1,12 +1,13 @@
 use lazy_static::lazy_static;
-use regex::Regex;
+use regex::{Regex, Captures};
 use std::cmp;
 use std::collections::{HashSet, HashMap};
 use crate::{ Point, Line, Cell, Bonus, Drone, Level };
 
 lazy_static! {
     static ref POINT_RE: Regex = Regex::new(r"\((?P<X>-?\d+),(?P<Y>-?\d+)\)").unwrap();
-    static ref BONUS_RE: Regex = Regex::new(r"(?P<P>[BFLRCX])\((?P<X>-?\d+),(?P<Y>-?\d+)\)").unwrap();
+    static ref BONUS_RE: Regex = Regex::new(r"(?P<P>[BFLRC])\((?P<X>-?\d+),(?P<Y>-?\d+)\)").unwrap();
+    static ref SPAWN_RE: Regex = Regex::new(r"X\((?P<X>-?\d+),(?P<Y>-?\d+)\)").unwrap();
 }
 
 fn parse_point(s: &str) -> Point {
@@ -14,8 +15,7 @@ fn parse_point(s: &str) -> Point {
     Point::new(captures["X"].parse::<isize>().unwrap(), captures["Y"].parse::<isize>().unwrap())
 }
 
-fn parse_bonus(s: &str) -> (Point, Bonus) {
-    let captures = BONUS_RE.captures(s).unwrap();
+fn parse_bonus(captures: Captures) -> (Point, Bonus) {
     (Point::new(captures["X"].parse::<isize>().unwrap(), captures["Y"].parse::<isize>().unwrap()),
      match &captures["P"] {
          "B" => { Bonus::HAND }
@@ -23,7 +23,6 @@ fn parse_bonus(s: &str) -> (Point, Bonus) {
          "L" => { Bonus::DRILL }
          "R" => { Bonus::TELEPORT }
          "C" => { Bonus::CLONE }
-         "X" => { Bonus::SPAWN }
          _   => panic!("Unknown bonus")
      })
 }
@@ -66,8 +65,10 @@ fn build_level(walls: &HashSet<Point>) -> Level {
     }
     Level {
         grid, width, height, empty,
-        bonuses: HashMap::new(),
-        picked: HashMap::new()
+        spawns:    HashSet::new(),
+        beakons:   HashSet::new(),
+        bonuses:   HashMap::new(),
+        collected: HashMap::new()
     }
 }
 
@@ -80,8 +81,13 @@ pub fn parse_level(file: &str) -> (Level, Vec<Drone>) {
                 walls.extend(parse_contour(obstacle_str));
             }
             let mut level = build_level(&walls);
-            for (pos, bonus) in BONUS_RE.find_iter(bonuses_str).map(|m| parse_bonus(m.as_str())) {
+            for captures in BONUS_RE.captures_iter(bonuses_str) {
+                let (pos, bonus) = parse_bonus(captures);
                 level.bonuses.insert(pos, bonus);
+            }
+            for captures in SPAWN_RE.captures_iter(bonuses_str) {
+                let pos = Point::new(captures["X"].parse::<isize>().unwrap(), captures["Y"].parse::<isize>().unwrap());
+                level.spawns.insert(pos);
             }
             (level, vec![Drone::new(parse_point(start_str))])
         }
