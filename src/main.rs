@@ -4,6 +4,8 @@ mod parser;
 
 use std::{env, fs, io, thread, time};
 use std::collections::{HashSet, HashMap, VecDeque};
+use std::time::{Instant};
+use regex::Regex;
 
 const DELAY: u64 = 50;
 
@@ -164,28 +166,42 @@ struct Plan {
     drilled: HashSet<Point>
 }
 
-fn rate(level: &Level, p: &Point) -> f64 {
+fn max_wrapping(level: &Level, p: &Point) -> f64 {
     match level.get_cell(p.x, p.y) {
         Cell::EMPTY => { 1. }
         _ => { 0. }
     }
 }
 
-fn explore(level: &Level, drone: &Drone) -> Option<VecDeque<Action>> {
+fn explore<F>(level: &Level, drone: &Drone, rate: F) -> Option<VecDeque<Action>>
+    where F: Fn(&Level, &Point) -> f64
+{
     let mut seen: HashSet<Point> = HashSet::new();
     let mut queue: VecDeque<Plan> = VecDeque::with_capacity(100);
+    let mut best: Option<(VecDeque<Action>, f64)> = None;
+    let mut max_len = 5;
     queue.push_back(Plan { plan: VecDeque::new(), pos: drone.pos, wheels: 0, drill: 0, drilled: HashSet::new() });
-//    println!("AT {:?} has {:?}", drone.pos, level.get_cell(drone.pos.x, drone.pos.y));
     loop {
         if let Some(Plan{plan, pos, wheels, drill, drilled}) = queue.pop_front() {
             if !level.walkable(pos.x, pos.y) || seen.contains(&pos) { continue }
             
-//            println!("RATE {:?} pos {:?} seen {} has {:?}", rate(level, &pos), pos, seen.contains(&pos), level.get_cell(pos.x, pos.y));
-            
+            if plan.len() >= max_len {
+                if best.is_some() {
+                    break Some(best.unwrap().0)
+                } else {
+                    max_len += 5;
+                }
+            }
+
             seen.insert(pos);
-            let rate = rate(level, &pos);
-             
-            if rate > 0. { break Some(plan) }
+            let score = if plan.is_empty() { 0. } else { rate(level, &pos) / plan.len() as f64 };
+            
+            if best.is_some() {
+                if score > best.as_ref().unwrap().1 { best = Some((plan.clone(), score)); }
+            } else {
+                if score > 0. { best = Some((plan.clone(), score)); }
+            }
+            
             for (action, dx, dy) in &[(Action::LEFT,  -1,  0),
                                       (Action::RIGHT,  1,  0),
                                       (Action::UP,     0,  1),
@@ -223,7 +239,7 @@ fn solve(level: &mut Level, drones: &mut Vec<Drone>, debug: bool) -> String {
             mark_level(level, &drone);
             
             if drone.plan.is_empty() {
-                if let Some(plan) = explore(level, drone) {
+                if let Some(plan) = explore(level, drone, max_wrapping) {
                     drone.plan = plan;
                 } else { break; }
             }
@@ -244,7 +260,7 @@ fn solve(level: &mut Level, drones: &mut Vec<Drone>, debug: bool) -> String {
     }
     
     if debug {
-        print!("\x1B[?1049l");
+        println!("\x1B[?1049l");
     }
     
     let paths: Vec<&str> = drones.iter().map(|d| d.path.as_str()).collect();
@@ -252,6 +268,7 @@ fn solve(level: &mut Level, drones: &mut Vec<Drone>, debug: bool) -> String {
 }
 
 fn main() {
+    let t_start = Instant::now();
     let args: Vec<String> = env::args().collect();
     let mut debug = false;
     let mut filename: Option<&str> = None;
@@ -267,5 +284,7 @@ fn main() {
     // io::stdin().read_line(&mut input).unwrap();
     let (mut level, mut drones) = parser::parse_level(&contents);
     let solution = solve(&mut level, &mut drones, debug);
+    let score = Regex::new(r"[A-Z]").unwrap().find_iter(&solution).count();
+    eprintln!("Score: {}\nElapsed: {} ms", score, t_start.elapsed().as_millis());
     println!("{}", solution);
 }
