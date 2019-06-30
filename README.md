@@ -7,5 +7,5 @@ Re-implementaion of [github.com/tonsky/icfpc2019](https://github.com/tonsky/icfp
 ## Building and running
 
 ```
-cargo run < problems/prob-049.desc
+cargo run problems/prob-049.desc --debug
 ```
