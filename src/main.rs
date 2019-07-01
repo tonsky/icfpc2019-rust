@@ -3,6 +3,8 @@
 mod parser;
 
 use std::{env, fs, io, thread, time};
+use std::fs::{File};
+use std::io::prelude::*;
 use std::collections::{HashSet, HashMap, VecDeque};
 use std::time::{Instant};
 use regex::Regex;
@@ -45,7 +47,7 @@ impl Drone {
                 plan:   VecDeque::new() }
     }
 
-    fn act(&mut self, action: Action, level: &Level) {
+    fn act(&mut self, action: Action, level: &mut Level) {
         let (dx, dy) = match action {
             Action::LEFT  => { (-1,  0) }
             Action::RIGHT => { ( 1,  0) }
@@ -56,13 +58,35 @@ impl Drone {
         let y2 = self.pos.y + dy;
         if level.walkable(x2, y2) {
             self.pos = Point::new(x2, y2);
+            mark_level(level, self);
+            if get_or(&self.active, &Bonus::WHEELS, 0) > 0 && level.walkable(x2 + dx, y2 + dy) {
+                self.pos = Point::new(x2 + dx, y2 + dy);
+                mark_level(level, self);
+            }
             self.path += match action {
                 Action::LEFT  => { "A" }
                 Action::RIGHT => { "D" }
                 Action::UP    => { "W" }
                 Action::DOWN  => { "S" }
             };
+        } else {
+            panic!("Unwalkable ({},{})", x2, y2);
         }
+    }
+
+    fn activate(&mut self, level: &mut Level) -> bool {
+        if get_or(&level.collected, &Bonus::WHEELS, 0) > 0 && get_or(&self.active, &Bonus::WHEELS, 0) == 0 {
+            update(&mut level.collected, Bonus::WHEELS, -1);
+            update(&mut self.active, Bonus::WHEELS, 51);
+            self.path += "F";
+            true
+        } else {
+            false
+        }
+    }
+
+    fn wear_off(&mut self) {
+        self.active.retain(|_, val| { *val -= 1; *val > 0 });
     }
 }
 
@@ -145,6 +169,20 @@ fn print(level: &Level, drones: &Vec<Drone>) {
     println!()
 }
 
+fn get_or<K>(m: &HashMap<K, usize>, k: &K, default: usize) -> usize
+    where K: std::hash::Hash + Eq + std::marker::Sized
+{
+    if let Some(v) = m.get(k) { *v } else { default }
+}
+
+fn update<K>(m: &mut HashMap<K, usize>, k: K, delta: isize)
+    where K: std::hash::Hash + Eq + std::marker::Sized
+{
+    let old_v: usize = get_or(m, &k, 0);
+    let new_v = old_v as isize + delta;
+    if new_v > 0 { m.insert(k, new_v as usize); }
+    else { m.remove(&k); }
+}
 
 fn mark_level(level: &mut Level, drone: &Drone) {
     let dx = drone.pos.x;
@@ -171,9 +209,9 @@ struct Plan {
 }
 
 fn max_wrapping(level: &Level, p: &Point) -> f64 {
-    if Cell::EMPTY != level.get_cell(p.x, p.y) { 0. }
-    else if level.bonuses.contains_key(p) { 100. }
-    else { 1. }
+    if level.bonuses.contains_key(p) { 100. }
+    else if Cell::EMPTY == level.get_cell(p.x, p.y) { 1. }
+    else { 0. }
 }
 
 fn explore<F>(level: &Level, drone: &Drone, rate: F) -> Option<VecDeque<Action>>
@@ -183,11 +221,13 @@ fn explore<F>(level: &Level, drone: &Drone, rate: F) -> Option<VecDeque<Action>>
     let mut queue: VecDeque<Plan> = VecDeque::with_capacity(100);
     let mut best: Option<(VecDeque<Action>, f64)> = None;
     let mut max_len = 5;
-    queue.push_back(Plan { plan: VecDeque::new(), pos: drone.pos, wheels: 0, drill: 0, drilled: HashSet::new() });
+    queue.push_back(Plan{plan:    VecDeque::new(),
+                         pos:     drone.pos,
+                         wheels:  get_or(&drone.active, &Bonus::WHEELS, 0),
+                         drill:   get_or(&drone.active, &Bonus::DRILL, 0),
+                         drilled: HashSet::new() });
     loop {
         if let Some(Plan{plan, pos, wheels, drill, drilled}) = queue.pop_front() {
-            if !level.walkable(pos.x, pos.y) || seen.contains(&pos) { continue }
-            
             if plan.len() >= max_len {
                 if best.is_some() {
                     break Some(best.unwrap().0)
@@ -196,9 +236,8 @@ fn explore<F>(level: &Level, drone: &Drone, rate: F) -> Option<VecDeque<Action>>
                 }
             }
 
-            seen.insert(pos);
             let score = if plan.is_empty() { 0. } else { rate(level, &pos) / plan.len() as f64 };
-            
+
             if best.is_some() {
                 if score > best.as_ref().unwrap().1 { best = Some((plan.clone(), score)); }
             } else {
@@ -209,13 +248,21 @@ fn explore<F>(level: &Level, drone: &Drone, rate: F) -> Option<VecDeque<Action>>
                                       (Action::RIGHT,  1,  0),
                                       (Action::UP,     0,  1),
                                       (Action::DOWN,   0, -1)] {
+                let (x2, y2) = (pos.x + dx, pos.y + dy);
+                if !level.walkable(x2, y2) { continue; }
+                let (x3, y3) = if wheels > 0 && level.walkable(x2 + dx, y2 + dy) {
+                    (x2 + dx, y2 + dy)
+                } else { (x2, y2) };
+                let pos3 = Point::new(x3, y3);
+                if seen.contains(&pos3) { continue; }
+                seen.insert(pos3);
                 let mut plan2 = plan.clone();
                 plan2.push_back(*action);
-                queue.push_back(Plan {
-                    plan: plan2,
-                    pos: Point::new(pos.x + dx, pos.y + dy),
-                    wheels,
-                    drill,
+                queue.push_back(Plan{
+                    plan:    plan2,
+                    pos:     pos3,
+                    wheels:  if wheels > 1 { wheels - 1 } else { 0 },
+                    drill:   if drill > 1  { drill - 1 }  else { 0 },
                     drilled: drilled.clone()
                 });
             }
@@ -236,24 +283,32 @@ fn collect(level: &mut Level, drone: &Drone) {
     }
 }
 
+fn print_debug(level: &Level, drones: &Vec<Drone>) {
+    println!("\x1B[1J");
+    print(level, &drones);
+    println!("Collected {:?}", level.collected);
+    let active: Vec<&HashMap<Bonus, usize>> = drones.iter().map(|d| &d.active).collect();
+    println!("Active {:?}", active);
+    println!("Empty {}", level.empty);
+    thread::sleep(time::Duration::from_millis(DELAY));
+}
+
 fn solve(level: &mut Level, drones: &mut Vec<Drone>, debug: bool) -> String {
-    
-    if debug {
-        print!("\x1B[?1049h\x1B[1J");
-        print(&level, &drones);
-        thread::sleep(time::Duration::from_millis(DELAY));
-    }
-    
-    let mut step = 0;
+    if debug { println!("\x1B[?1049h"); }
+    mark_level(level, &drones[0]);
     while level.empty > 0 {
         for drone_idx in 0..drones.len() {
+            if debug { print_debug(level, drones); }
+
             if level.empty <= 0 { break; }
 
             let mut drone = &mut drones[drone_idx];
-            mark_level(level, &drone);
             collect(level, &drone);
+            drone.wear_off();
             
             if drone.plan.is_empty() {
+                if drone.activate(level) { continue; }
+
                 if let Some(plan) = explore(level, drone, max_wrapping) {
                     drone.plan = plan;
                 } else { break; }
@@ -262,20 +317,11 @@ fn solve(level: &mut Level, drones: &mut Vec<Drone>, debug: bool) -> String {
             if let Some(action)= drone.plan.pop_front() {
                 drone.act(action, level);
             } else { break; }
-            
-            step += 1;
-            
-            if debug {
-                print!("\x1B[1J");
-                print(level, &drones);
-                println!("Collected {:?}", level.collected);
-                println!("Step {}, empty {}", step, level.empty);
-                thread::sleep(time::Duration::from_millis(DELAY));
-            }
         }
     }
     
     if debug {
+        print_debug(level, drones);
         println!("\x1B[?1049l");
     }
     
@@ -302,5 +348,10 @@ fn main() {
     let solution = solve(&mut level, &mut drones, debug);
     let score = Regex::new(r"[A-Z]").unwrap().find_iter(&solution).count();
     eprintln!("Score: {}\nElapsed: {} ms", score, t_start.elapsed().as_millis());
+    
+    let filename_sol = Regex::new(r"\.desc$").unwrap().replace(filename.unwrap(), ".sol");
+    let mut file = File::create(filename_sol.into_owned()).unwrap();
+    file.write_all(solution.as_bytes()).unwrap();
+
     println!("{}", solution);
 }
