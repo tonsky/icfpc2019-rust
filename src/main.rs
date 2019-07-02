@@ -66,7 +66,7 @@ impl Drone {
         get_or(&self.active, bonus, 0) > 0
     }
 
-    fn wrap(&self, level: &mut Level) {
+    fn wrap_bot(&self, level: &mut Level) {
         let mut to_wrap: HashSet<Point> = HashSet::new();
         would_wrap(level, self, &self.pos, &mut to_wrap);
         for p in to_wrap { level.wrap_cell(p.x, p.y); }
@@ -96,6 +96,15 @@ impl Drone {
         } else { false }
     }
 
+    fn activate_drill(&mut self, level: &mut Level) -> bool {
+        if get_or(&level.collected, &Bonus::DRILL, 0) > 0 && !self.is_active(&Bonus::DRILL) {
+            update(&mut level.collected, Bonus::DRILL, -1);
+            update(&mut self.active, Bonus::DRILL, 31);
+            self.path += "L";
+            true
+        } else { false }
+    }
+
     fn act(&mut self, action: &Action, level: &mut Level) {
         let wheels = self.is_active(&Bonus::WHEELS);
         let drill = self.is_active(&Bonus::DRILL);
@@ -104,6 +113,9 @@ impl Drone {
             self.path += match action { Action::UP => "W", Action::DOWN => "S", Action::LEFT => "A", Action::RIGHT => "D" };
             for p in new_wrapped {
                 level.wrap_cell(p.x, p.y);
+            }
+            for p in new_drilled {
+                level.drill_cell(p.x, p.y);
             }
         } else {
             panic!("Unwalkable from ({},{}) {:?}", self.pos.x, self.pos.y, action);
@@ -134,11 +146,17 @@ impl Level {
 
     fn wrap_cell(&mut self, x: isize, y: isize) {
         assert!(x >= 0 && x < self.width && y >= 0 && y < self.height);
-        if self.get_cell(x, y) == Cell::EMPTY {
-            let offset = self.coord_to_offset(x, y);
-            self.empty -= 1;
-            self.grid[offset] = Cell::WRAPPED;
-        }
+        assert!(self.get_cell(x, y) == Cell::EMPTY);
+        let offset = self.coord_to_offset(x, y);
+        self.empty -= 1;
+        self.grid[offset] = Cell::WRAPPED;
+    }
+
+    fn drill_cell(&mut self, x: isize, y: isize) {
+        assert!(x >= 0 && x < self.width && y >= 0 && y < self.height);
+        assert!(self.get_cell(x, y) == Cell::BLOCKED);
+        let offset = self.coord_to_offset(x, y);
+        self.grid[offset] = Cell::WRAPPED;
     }
 
     fn valid(&self, x: isize, y: isize) -> bool {
@@ -205,7 +223,9 @@ fn max_wrapping(level: &Level, p: &Point) -> f64 {
 }
 
 fn would_wrap(level: &Level, drone: &Drone, pos: &Point, wrapped: &mut HashSet<Point>) { // TODO make an iterator?
-    wrapped.insert(*pos);
+    if level.get_cell(pos.x, pos.y) == Cell::EMPTY {
+        wrapped.insert(*pos);
+    }
     for Point{x, y} in &drone.hands {
         let hx = pos.x + *x;
         let hy = pos.y + *y;
@@ -295,13 +315,14 @@ fn explore<F>(level: &Level, drone: &Drone, rate: F) -> Option<VecDeque<Action>>
                 }
             }
         } else {
-            break None
+            if best.is_some() { break Some(best.unwrap().0) }
+            else { break None }
         }
     }
 }
 
-fn print_debug(level: &Level, drones: &Vec<Drone>) {
-    println!("\x1B[1J");
+fn print_state(level: &Level, drones: &Vec<Drone>) {
+    println!("\x1B[2J");
     print(level, &drones);
     println!("Collected {:?}", level.collected);
     let active: Vec<&HashMap<Bonus, usize>> = drones.iter().map(|d| &d.active).collect();
@@ -310,12 +331,12 @@ fn print_debug(level: &Level, drones: &Vec<Drone>) {
     thread::sleep(time::Duration::from_millis(DELAY));
 }
 
-fn solve(level: &mut Level, drones: &mut Vec<Drone>, debug: bool) -> String {
-    if debug { println!("\x1B[?1049h"); }
-    drones[0].wrap(level);
+fn solve(level: &mut Level, drones: &mut Vec<Drone>, interactive: bool) -> String {
+    if interactive { println!("\x1B[?1049h"); }
+    drones[0].wrap_bot(level);
     while level.empty > 0 {
         for drone_idx in 0..drones.len() {
-            if debug { print_debug(level, drones); }
+            if interactive { print_state(level, drones); }
 
             if level.empty <= 0 { break; }
 
@@ -324,7 +345,9 @@ fn solve(level: &mut Level, drones: &mut Vec<Drone>, debug: bool) -> String {
             drone.wear_off();
             
             if drone.plan.is_empty() {
-                if drone.activate_wheels(level) { continue; }
+                if drone.activate_wheels(level) || drone.activate_drill(level) {
+                    continue;
+                }
                 if let Some(plan) = explore(level, drone, max_wrapping) {
                     drone.plan = plan;
                 } else { break; }
@@ -336,8 +359,8 @@ fn solve(level: &mut Level, drones: &mut Vec<Drone>, debug: bool) -> String {
         }
     }
     
-    if debug {
-        print_debug(level, drones);
+    if interactive {
+        print_state(level, drones);
         println!("\x1B[?1049l");
     }
     
@@ -348,26 +371,26 @@ fn solve(level: &mut Level, drones: &mut Vec<Drone>, debug: bool) -> String {
 fn main() {
     let t_start = Instant::now();
     let args: Vec<String> = env::args().collect();
-    let mut debug = false;
+    let mut interactive = false;
     let mut filename: Option<&str> = None;
     
     for arg in args[1..].iter() {
-        if arg == "--debug" { debug = true; }
+        if arg == "--interactive" { interactive = true; }
         else if arg.ends_with(".desc") { filename = Some(arg); }
-        else { panic!("cargo run [--debug] <path/to/problem.desc>"); }
+        else { panic!("cargo run [--interactive] <path/to/problem.desc>"); }
     }
     
     let contents = fs::read_to_string(filename.unwrap()).unwrap();
     // let mut input = String::new();
     // io::stdin().read_line(&mut input).unwrap();
     let (mut level, mut drones) = parser::parse_level(&contents);
-    let solution = solve(&mut level, &mut drones, debug);
+    let solution = solve(&mut level, &mut drones, interactive);
     let score = Regex::new(r"[A-Z]").unwrap().find_iter(&solution).count();
-    eprintln!("Score: {}\nElapsed: {} ms", score, t_start.elapsed().as_millis());
+    eprintln!("{} \tscore {} \ttime {} ms", filename.unwrap(), score, t_start.elapsed().as_millis());
     
     let filename_sol = Regex::new(r"\.desc$").unwrap().replace(filename.unwrap(), ".sol");
     let mut file = File::create(filename_sol.into_owned()).unwrap();
     file.write_all(solution.as_bytes()).unwrap();
 
-    println!("{}", solution);
+    // println!("{}", solution);
 }

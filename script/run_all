@@ -1,0 +1,8 @@
+#!/bin/bash -e
+
+cargo build --release
+
+for file in problems/prob-*.desc
+do
+    ./target/release/icfpc2019 $file
+done

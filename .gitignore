@@ -1,4 +1,5 @@
 /target
+/target.nosync
 **/*.rs.bk
 .idea
 problems/*.sol

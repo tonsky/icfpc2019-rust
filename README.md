@@ -7,5 +7,17 @@ Re-implementaion of [github.com/tonsky/icfpc2019](https://github.com/tonsky/icfp
 ## Building and running
 
 ```
-cargo run problems/prob-049.desc --debug
+RUST_BACKTRACE=1 cargo run problems/prob-049.desc --interactive
+```
+
+Running release version:
+
+```
+cargo run --release problems/prob-049.desc
+```
+
+Solve all:
+
+```
+./script/run_all
 ```

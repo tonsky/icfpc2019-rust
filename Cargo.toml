@@ -8,6 +8,3 @@ exclude = ["problems/*"]
 [dependencies]
 regex = "1"
 lazy_static = "1"
-
-[build]
-target-dir = "target"
