@@ -48,9 +48,10 @@ fn update<K>(m: &mut HashMap<K, usize>, k: K, delta: isize)
 
 fn hand_blockers() -> HashMap<Point, Vec<Point>> {
     let mut res = HashMap::new();
+    res.insert(Point::new(0,  0), vec![Point::new(0,  0)]);
     res.insert(Point::new(1, -1), vec![Point::new(1, -1)]);
-    res.insert(Point::new(1,  0), vec![Point::new(1, 0)]);
-    res.insert(Point::new(1,  1), vec![Point::new(1, 1)]);
+    res.insert(Point::new(1,  0), vec![Point::new(1,  0)]);
+    res.insert(Point::new(1,  1), vec![Point::new(1,  1)]);
     for maxy in 2..19 {
         let mut val = Vec::with_capacity(maxy);
         for y in 1..(maxy/2+1) { val.push(Point::new(0, y as isize)) }
@@ -75,7 +76,7 @@ pub struct Drone {
 impl Drone {
     fn new(pos: Point) -> Drone {
         Drone { pos, 
-                hands:  vec![Point::new(1,-1), Point::new(1,0), Point::new(1,1)],
+                hands:  vec![Point::new(0,0), Point::new(1,-1), Point::new(1,0), Point::new(1,1)],
                 active: HashMap::new(),
                 path:   String::new(),
                 plan:   VecDeque::new() }
@@ -156,6 +157,7 @@ impl Drone {
 
 pub struct Level {
     grid:      Vec<Cell>,
+    weights:   Vec<u8>,
     width:     isize,
     height:    isize,
     empty:     usize,
@@ -249,10 +251,14 @@ struct Plan {
     drilled: HashSet<Point>
 }
 
-fn max_wrapping(level: &Level, p: &Point) -> f64 {
-    if level.bonuses.contains_key(p) { 100. }
-    else if Cell::EMPTY == level.get_cell(p.x, p.y) { 1. }
-    else { 0. }
+fn max_wrapping(level: &Level, drone: &Drone, pos: &Point) -> f64 {
+    if level.bonuses.contains_key(pos) { 
+        100.
+    } else {
+        let mut wrapped: HashSet<Point> = HashSet::new();
+        would_wrap(level, drone, pos, &mut wrapped);
+        wrapped.iter().map(|p| 1.0_f64.max(level.weights[level.coord_to_offset(p.x, p.y)] as f64)).sum()
+    }
 }
 
 fn is_reaching(level: &Level, from: &Point, hand: &Point) -> bool {
@@ -260,15 +266,11 @@ fn is_reaching(level: &Level, from: &Point, hand: &Point) -> bool {
 }
 
 fn would_wrap(level: &Level, drone: &Drone, pos: &Point, wrapped: &mut HashSet<Point>) {
-    if level.get_cell(pos.x, pos.y) == Cell::EMPTY {
-        wrapped.insert(*pos);
-    }
     for hand in &drone.hands {
         if is_reaching(level, pos, &hand) {
-            let hx = pos.x + hand.x;
-            let hy = pos.y + hand.y;
-            if level.valid(hx, hy) && level.get_cell(hx, hy) == Cell::EMPTY {
-                wrapped.insert(Point::new(hx, hy));
+            let hand_pos = Point::new(pos.x + hand.x, pos.y + hand.y);
+            if level.get_cell(hand_pos.x, hand_pos.y) == Cell::EMPTY {
+                wrapped.insert(hand_pos);
             }
         }
     }
@@ -306,7 +308,7 @@ fn step(level: &Level, drone: &Drone, from: &Point, action: &Action, wheels: boo
 }
 
 fn explore<F>(level: &Level, drone: &Drone, rate: F) -> Option<VecDeque<Action>>
-    where F: Fn(&Level, &Point) -> f64
+    where F: Fn(&Level, &Drone, &Point) -> f64
 {
     let mut seen: HashSet<Point> = HashSet::new();
     let mut queue: VecDeque<Plan> = VecDeque::with_capacity(100);
@@ -327,7 +329,7 @@ fn explore<F>(level: &Level, drone: &Drone, rate: F) -> Option<VecDeque<Action>>
                 }
             }
 
-            let score = if plan.is_empty() { 0. } else { rate(level, &pos) / plan.len() as f64 };
+            let score = if plan.is_empty() { 0. } else { rate(level, drone, &pos) / plan.len() as f64 };
 
             if best.is_some() {
                 if score > best.as_ref().unwrap().1 { best = Some((plan.clone(), score)); }

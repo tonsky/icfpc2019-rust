@@ -47,6 +47,24 @@ fn wall_on_left(x: usize, y: usize, walls: &Vec<Line>) -> bool {
         && l.to.y >= (y + 1) as isize)
 }
 
+fn weights(grid: &[Cell], width: isize, height: isize) -> Vec<u8> {
+    let mut weights: Vec<u8> = Vec::with_capacity(grid.len());
+    for y in 0..height {
+        for x in 0..width {
+            let mut sum: u8 = 0;
+            for (dx, dy) in &[(0,1),(0,-1),(-1,0),(1,0),(1,1),(-1,-1),(-1,1),(1,-1)] {
+                let x2 = x + dx;
+                let y2 = y + dy;
+                if x2 >= 0 && x2 < width && y2 >= 0 && y2 < height && grid[(x2 + y2 * width) as usize] == Cell::BLOCKED {
+                    sum += 1;
+                }
+            }
+            weights.push(sum);
+        }
+    }
+    weights
+}
+
 fn build_level(walls: &HashSet<Point>) -> Level {
     let height = walls.iter().max_by_key(|p| p.y).unwrap().y + 1;
     let width = walls.iter().max_by_key(|p| p.x).unwrap().x;
@@ -63,8 +81,9 @@ fn build_level(walls: &HashSet<Point>) -> Level {
         }
         assert_eq!(walls.contains(&Point::new(width, y)), Cell::EMPTY == last_cell);
     }
+    let weights = weights(&grid, width, height);
     Level {
-        grid, width, height, empty,
+        grid, weights, width, height, empty,
         spawns:    HashSet::new(),
         beakons:   HashSet::new(),
         bonuses:   HashMap::new(),
