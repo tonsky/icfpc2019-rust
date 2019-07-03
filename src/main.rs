@@ -8,6 +8,7 @@ use std::io::prelude::*;
 use std::collections::{HashSet, HashMap, VecDeque};
 use std::time::{Instant};
 use regex::Regex;
+use lazy_static::lazy_static;
 
 const DELAY: u64 = 50;
 
@@ -45,6 +46,24 @@ fn update<K>(m: &mut HashMap<K, usize>, k: K, delta: isize)
     else { m.remove(&k); }
 }
 
+fn hand_blockers() -> HashMap<Point, Vec<Point>> {
+    let mut res = HashMap::new();
+    res.insert(Point::new(1, -1), vec![Point::new(1, -1)]);
+    res.insert(Point::new(1,  0), vec![Point::new(1, 0)]);
+    res.insert(Point::new(1,  1), vec![Point::new(1, 1)]);
+    for maxy in 2..19 {
+        let mut val = Vec::with_capacity(maxy);
+        for y in 1..(maxy/2+1) { val.push(Point::new(0, y as isize)) }
+        for y in (maxy+1)/2..(maxy+1) { val.push(Point::new(1, y as isize)) }
+        res.insert(Point::new(1, maxy as isize), val);
+    }
+    res
+}
+
+lazy_static! {
+    static ref HAND_BLOCKERS: HashMap<Point, Vec<Point>> = hand_blockers();
+}
+
 pub struct Drone {
     pos:    Point,
     hands:  Vec<Point>,
@@ -56,7 +75,7 @@ pub struct Drone {
 impl Drone {
     fn new(pos: Point) -> Drone {
         Drone { pos, 
-                hands:  vec![Point::new(1,0), Point::new(1,1), Point::new(1,-1)],
+                hands:  vec![Point::new(1,-1), Point::new(1,0), Point::new(1,1)],
                 active: HashMap::new(),
                 path:   String::new(),
                 plan:   VecDeque::new() }
@@ -69,7 +88,9 @@ impl Drone {
     fn wrap_bot(&self, level: &mut Level) {
         let mut to_wrap: HashSet<Point> = HashSet::new();
         would_wrap(level, self, &self.pos, &mut to_wrap);
-        for p in to_wrap { level.wrap_cell(p.x, p.y); }
+        for p in to_wrap {
+            level.wrap_cell(p.x, p.y);
+        }
     }
 
     fn collect(&self, level: &mut Level) {
@@ -101,6 +122,16 @@ impl Drone {
             update(&mut level.collected, Bonus::DRILL, -1);
             update(&mut self.active, Bonus::DRILL, 31);
             self.path += "L";
+            true
+        } else { false }
+    }
+
+    fn activate_hand(&mut self, level: &mut Level) -> bool {
+        if get_or(&level.collected, &Bonus::HAND, 0) > 0 {
+            update(&mut level.collected, Bonus::HAND, -1);
+            let new_hand = Point::new(1, self.hands.last().unwrap().y + 1);
+            self.path += &format!("B({},{})", new_hand.x, new_hand.y);
+            self.hands.push(new_hand);
             true
         } else { false }
     }
@@ -168,13 +199,15 @@ impl Level {
     }
 }
 
-fn print(level: &Level, drones: &Vec<Drone>) {
+fn print_level(level: &Level, drones: &[Drone]) {
     for y in (0..level.height).rev() {
         for x in 0..level.width {
             let point = Point::new(x, y);
             let char = if let Some(idx) = drones.iter().position(|d| d.pos == point) {
                     idx.to_string()
-                } else if let Some(_) = drones.iter().find(|d| d.hands.iter().find(|h| d.pos.x + h.x == x as isize && d.pos.y + h.y == y as isize).is_some()) {
+                } else if drones.iter().find(|d| d.hands.iter().find(|h| {
+                    d.pos.x + h.x == x as isize && d.pos.y + h.y == y as isize && is_reaching(level, &d.pos, &h)
+                  }).is_some()).is_some() {
                     String::from(
                         match level.get_cell(x, y) {
                             Cell::EMPTY   => { "*" }
@@ -222,16 +255,21 @@ fn max_wrapping(level: &Level, p: &Point) -> f64 {
     else { 0. }
 }
 
-fn would_wrap(level: &Level, drone: &Drone, pos: &Point, wrapped: &mut HashSet<Point>) { // TODO make an iterator?
+fn is_reaching(level: &Level, from: &Point, hand: &Point) -> bool {
+    HAND_BLOCKERS.get(hand).unwrap().iter().all(|p| level.walkable(from.x+p.x, from.y+p.y))
+}
+
+fn would_wrap(level: &Level, drone: &Drone, pos: &Point, wrapped: &mut HashSet<Point>) {
     if level.get_cell(pos.x, pos.y) == Cell::EMPTY {
         wrapped.insert(*pos);
     }
-    for Point{x, y} in &drone.hands {
-        let hx = pos.x + *x;
-        let hy = pos.y + *y;
-        // TODO check hand visibility
-        if level.valid(hx, hy) && level.get_cell(hx, hy) == Cell::EMPTY {
-            wrapped.insert(Point::new(hx, hy));
+    for hand in &drone.hands {
+        if is_reaching(level, pos, &hand) {
+            let hx = pos.x + hand.x;
+            let hy = pos.y + hand.y;
+            if level.valid(hx, hy) && level.get_cell(hx, hy) == Cell::EMPTY {
+                wrapped.insert(Point::new(hx, hy));
+            }
         }
     }
 }
@@ -321,13 +359,14 @@ fn explore<F>(level: &Level, drone: &Drone, rate: F) -> Option<VecDeque<Action>>
     }
 }
 
-fn print_state(level: &Level, drones: &Vec<Drone>) {
+fn print_state(level: &Level, drones: &[Drone]) {
     println!("\x1B[2J");
-    print(level, &drones);
-    println!("Collected {:?}", level.collected);
-    let active: Vec<&HashMap<Bonus, usize>> = drones.iter().map(|d| &d.active).collect();
-    println!("Active {:?}", active);
-    println!("Empty {}", level.empty);
+    print_level(level, &drones);
+    println!("Empty {} Collected {:?}", level.empty, level.collected);
+    for drone in drones {
+        let active: Vec<&HashMap<Bonus, usize>> = drones.iter().map(|d| &d.active).collect();
+        println!("Active {:?} At ({},{}) Plan {:?}", active, drone.pos.x, drone.pos.y, drone.plan);
+    }
     thread::sleep(time::Duration::from_millis(DELAY));
 }
 
@@ -345,7 +384,10 @@ fn solve(level: &mut Level, drones: &mut Vec<Drone>, interactive: bool) -> Strin
             drone.wear_off();
             
             if drone.plan.is_empty() {
-                if drone.activate_wheels(level) || drone.activate_drill(level) {
+                if drone.activate_wheels(level)
+                   || drone.activate_drill(level)
+                   || drone.activate_hand(level)
+                {
                     continue;
                 }
                 if let Some(plan) = explore(level, drone, max_wrapping) {
