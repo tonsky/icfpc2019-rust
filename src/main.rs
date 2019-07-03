@@ -361,6 +361,21 @@ fn explore<F>(level: &Level, drone: &Drone, rate: F) -> Option<VecDeque<Action>>
     }
 }
 
+fn find_clone_score(level: &Level, drone: &Drone, pos: &Point) -> f64 {
+    if level.bonuses.get(pos) == Some(&Bonus::CLONE) { 1.}
+    else { 0. }
+}
+
+fn explore_clone(level: &Level, drone: &Drone, drone_idx: usize) -> Option<VecDeque<Action>> {
+    if drone_idx == 0
+       && level.bonuses.values().any(|&b| b == Bonus::CLONE)
+       && get_or(&level.collected, &Bonus::CLONE, 0) == 0 {
+        explore(level, drone, find_clone_score)
+    } else {
+        None
+    }
+}
+
 fn print_state(level: &Level, drones: &[Drone]) {
     println!("\x1B[2J");
     print_level(level, &drones);
@@ -389,17 +404,22 @@ fn solve(level: &mut Level, drones: &mut Vec<Drone>, interactive: bool) -> Strin
                 if drone.activate_wheels(level)
                    || drone.activate_drill(level)
                    || drone.activate_hand(level)
-                {
-                    continue;
-                }
-                if let Some(plan) = explore(level, drone, max_wrapping) {
+                { continue; }
+
+                if let Some(plan) = explore_clone(level, drone, drone_idx) {
                     drone.plan = plan;
-                } else { break; }
+                } else if let Some(plan) = explore(level, drone, max_wrapping) {
+                    drone.plan = plan;
+                }
             }
             
             if let Some(action) = drone.plan.pop_front() {
                 drone.act(&action, level);
-            } else { break; }
+            } else if get_or(&drone.active, &Bonus::WHEELS, 0) > 0 {
+                drone.path += "Z";
+            } else {
+                panic!("Nothing to do");
+            }
         }
     }
     
