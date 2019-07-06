@@ -109,8 +109,17 @@ impl Drone {
         self.active.retain(|_, val| { *val -= 1; *val > 0 });
     }
 
+    fn has_space(&self, level: &Level) -> bool {
+        (1..5).all(   |i| level.valid(self.pos.x, self.pos.y+i) && level.get_cell(self.pos.x, self.pos.y+i) != Cell::BLOCKED)
+        || (1..5).all(|i| level.valid(self.pos.x, self.pos.y-i) && level.get_cell(self.pos.x, self.pos.y-i) != Cell::BLOCKED)
+        || (1..5).all(|i| level.valid(self.pos.x+i, self.pos.y) && level.get_cell(self.pos.x+i, self.pos.y) != Cell::BLOCKED)
+        || (1..5).all(|i| level.valid(self.pos.x-i, self.pos.y) && level.get_cell(self.pos.x-i, self.pos.y) != Cell::BLOCKED)
+    }
+
     fn activate_wheels(&mut self, level: &mut Level) -> bool {
-        if get_or(&level.collected, &Bonus::WHEELS, 0) > 0 && !self.is_active(&Bonus::WHEELS) {
+        if get_or(&level.collected, &Bonus::WHEELS, 0) > 0
+           && !self.is_active(&Bonus::WHEELS)
+           && self.has_space(level) {
             update(&mut level.collected, Bonus::WHEELS, -1);
             update(&mut self.active, Bonus::WHEELS, 51);
             self.path += "F";
@@ -135,6 +144,14 @@ impl Drone {
             self.hands.push(new_hand);
             true
         } else { false }
+    }
+
+    fn reduplicate(&mut self, level: &mut Level) -> Option<Drone> {
+        if get_or(&level.collected, &Bonus::CLONE, 0) > 0 && level.spawns.contains(&self.pos) {
+            update(&mut level.collected, Bonus::CLONE, -1);
+            self.path += "C";
+            Some(Drone::new(self.pos))
+        } else { None }
     }
 
     fn act(&mut self, action: &Action, level: &mut Level) {
@@ -362,8 +379,7 @@ fn explore<F>(level: &Level, drone: &Drone, rate: F) -> Option<VecDeque<Action>>
 }
 
 fn find_clone_score(level: &Level, drone: &Drone, pos: &Point) -> f64 {
-    if level.bonuses.get(pos) == Some(&Bonus::CLONE) { 1.}
-    else { 0. }
+    if level.bonuses.get(pos) == Some(&Bonus::CLONE) { 1. } else { 0. }
 }
 
 fn explore_clone(level: &Level, drone: &Drone, drone_idx: usize) -> Option<VecDeque<Action>> {
@@ -376,13 +392,24 @@ fn explore_clone(level: &Level, drone: &Drone, drone_idx: usize) -> Option<VecDe
     }
 }
 
+fn find_spawn_score(level: &Level, drone: &Drone, pos: &Point) -> f64 {
+    if level.spawns.contains(pos) { 1.} else { 0. }
+}
+
+fn explore_spawn(level: &Level, drone: &Drone, drone_idx: usize) -> Option<VecDeque<Action>> {
+    if drone_idx == 0 && get_or(&level.collected, &Bonus::CLONE, 0) > 0 {
+        explore(level, drone, find_spawn_score)
+    } else {
+        None
+    }
+}
+
 fn print_state(level: &Level, drones: &[Drone]) {
     println!("\x1B[2J");
     print_level(level, &drones);
     println!("Empty {} Collected {:?}", level.empty, level.collected);
-    for drone in drones {
-        let active: Vec<&HashMap<Bonus, usize>> = drones.iter().map(|d| &d.active).collect();
-        println!("Active {:?} At ({},{}) Plan {:?}", active, drone.pos.x, drone.pos.y, drone.plan);
+    for (i, drone) in drones.iter().enumerate() {
+        println!("{}: active {:?} at ({},{}) plan {:?}", i, drone.active, drone.pos.x, drone.pos.y, drone.plan);
     }
     thread::sleep(time::Duration::from_millis(DELAY));
 }
@@ -401,14 +428,19 @@ fn solve(level: &mut Level, drones: &mut Vec<Drone>, interactive: bool) -> Strin
             drone.wear_off();
             
             if drone.plan.is_empty() {
+                if let Some(clone) = drone.reduplicate(level) {
+                    drones.push(clone);
+                    continue;
+                }
+
                 if drone.activate_wheels(level)
                    || drone.activate_drill(level)
                    || drone.activate_hand(level)
                 { continue; }
 
-                if let Some(plan) = explore_clone(level, drone, drone_idx) {
-                    drone.plan = plan;
-                } else if let Some(plan) = explore(level, drone, max_wrapping) {
+                if let Some(plan) = explore_clone(level, drone, drone_idx)
+                                    .or_else(|| explore_spawn(level, drone, drone_idx))
+                                    .or_else(|| explore(level, drone, max_wrapping)) {
                     drone.plan = plan;
                 }
             }
@@ -449,7 +481,9 @@ fn main() {
     // io::stdin().read_line(&mut input).unwrap();
     let (mut level, mut drones) = parser::parse_level(&contents);
     let solution = solve(&mut level, &mut drones, interactive);
-    let score = Regex::new(r"[A-Z]").unwrap().find_iter(&solution).count();
+    // let score = Regex::new(r"[A-Z]").unwrap().find_iter(&solution).count();
+    let score = solution.split("#").map(|s| Regex::new(r"[A-Z]").unwrap().find_iter(s).count()).max().unwrap();
+
     eprintln!("{} \tscore {} \ttime {} ms", filename.unwrap(), score, t_start.elapsed().as_millis());
     
     let filename_sol = Regex::new(r"\.desc$").unwrap().replace(filename.unwrap(), ".sol");
