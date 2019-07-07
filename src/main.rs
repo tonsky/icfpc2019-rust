@@ -3,7 +3,7 @@
 mod parser;
 
 use std::{env, fs, io, thread, time};
-use std::cmp::{min};
+use std::cmp::{min, max};
 use std::fs::{File};
 use std::io::prelude::*;
 use std::collections::{HashSet, HashMap, VecDeque};
@@ -262,8 +262,13 @@ impl Level {
 }
 
 fn print_level(level: &Level, drones: &[Drone]) {
-    for y in (0..min(50, level.height)).rev() {
-        for x in 0..level.width {
+    let ymin = max(0, drones[0].pos.y - 25);
+    let ymax = min(ymin + 50, level.height);
+    let xmin = max(0, drones[0].pos.x - 50);
+    let xmax = min(xmin + 100, level.width);
+
+    for y in (ymin..ymax).rev() {
+        for x in xmin..xmax {
             let point = Point::new(x, y);
 
             let bg = if drones.iter().find(|d| d.hands.iter().find(|h| {
@@ -467,9 +472,8 @@ fn solve(level: &mut Level, drones: &mut Vec<Drone>, interactive: bool) -> Strin
     if interactive { println!("\x1B[?1049h"); }
     drones[0].wrap_bot(level);
     while level.empty > 0 {
+        if interactive { print_state(level, drones); }
         for drone_idx in 0..drones.len() {
-            if interactive { print_state(level, drones); }
-
             if level.empty <= 0 { break; }
 
             let taken: Vec<_> = drones.iter().map(|d| d.zone).collect();
