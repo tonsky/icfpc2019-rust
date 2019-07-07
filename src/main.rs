@@ -3,6 +3,7 @@
 mod parser;
 
 use std::{env, fs, io, thread, time};
+use std::cmp::{min};
 use std::fs::{File};
 use std::io::prelude::*;
 use std::collections::{HashSet, HashMap, VecDeque};
@@ -65,12 +66,20 @@ lazy_static! {
     static ref HAND_BLOCKERS: HashMap<Point, Vec<Point>> = hand_blockers();
 }
 
+type Zone = u8;
+const UNDECIDED_ZONE: Zone = !0;
+fn zone_char(zone: Zone) -> char {
+    if zone < UNDECIDED_ZONE { (65 + zone) as char }
+    else { '-' } 
+}
+
 pub struct Drone {
     pos:    Point,
     hands:  Vec<Point>,
     active: HashMap<Bonus, usize>,
     path:   String,
-    plan:   VecDeque<Action>
+    plan:   VecDeque<Action>,
+    zone:   Zone
 }
 
 impl Drone {
@@ -79,7 +88,8 @@ impl Drone {
                 hands:  vec![Point::new(0,0), Point::new(1,-1), Point::new(1,0), Point::new(1,1)],
                 active: HashMap::new(),
                 path:   String::new(),
-                plan:   VecDeque::new() }
+                plan:   VecDeque::new(),
+                zone:   UNDECIDED_ZONE}
     }
 
     fn is_active(&self, bonus: &Bonus) -> bool {
@@ -91,6 +101,28 @@ impl Drone {
         would_wrap(level, self, &self.pos, &mut to_wrap);
         for p in to_wrap {
             level.wrap_cell(p.x, p.y);
+        }
+    }
+
+    fn choose_zone(&mut self, taken: &[u8], level: &Level) -> bool {
+        if self.zone == UNDECIDED_ZONE || level.zones_empty[self.zone as usize] == 0 {
+            let not_empty:  Vec<u8> = (0..level.zones_empty.len() as u8).filter(|&z| level.zones_empty[z as usize] > 0).collect();
+            let not_taken:  Vec<u8> = not_empty.iter().cloned().filter(|&z| taken.iter().all(|&t| t != z)).collect();
+            let looking_in: Vec<u8> = if not_taken.len() > 0 { not_taken } else { not_empty };
+            let rate = |level: &Level, drone: &Drone, pos: &Point| {
+                if level.get_cell(pos.x, pos.y) == Cell::EMPTY && looking_in.contains(&level.get_zone(pos.x, pos.y)) { 1. }
+                else { 0. }
+            };
+
+            if let Some((plan, pos, _)) = explore_impl(level, self, rate) {
+                self.zone = level.get_zone(pos.x, pos.y);
+                self.plan = plan;
+            } else {
+                panic!("No zone left to choose")
+            }
+            true
+        } else {
+            false
         }
     }
 
@@ -173,40 +205,51 @@ impl Drone {
 }
 
 pub struct Level {
-    grid:      Vec<Cell>,
-    weights:   Vec<u8>,
-    width:     isize,
-    height:    isize,
-    empty:     usize,
-    spawns:    HashSet<Point>,
-    beakons:   HashSet<Point>,
-    bonuses:   HashMap<Point, Bonus>,
-    collected: HashMap<Bonus, usize>
+    grid:        Vec<Cell>,
+    weights:     Vec<u8>,
+    zones:       Vec<Zone>,
+    width:       isize,
+    height:      isize,
+    empty:       usize,
+    zones_empty: Vec<usize>,
+    spawns:      HashSet<Point>,
+    beakons:     HashSet<Point>,
+    bonuses:     HashMap<Point, Bonus>,
+    collected:   HashMap<Bonus, usize>
 }
 
 impl Level {
-    fn coord_to_offset(&self, x: isize, y: isize) -> usize {
+    fn grid_idx(&self, x: isize, y: isize) -> usize {        
         (x + y * self.width) as usize
     }
 
     fn get_cell(&self, x: isize, y: isize) -> Cell {
         assert!(x >= 0 && x < self.width && y >= 0 && y < self.height);
-        self.grid[self.coord_to_offset(x, y)]
+        self.grid[self.grid_idx(x, y)]
+    }
+
+    fn get_zone(&self, x: isize, y: isize) -> u8 {
+        assert!(x >= 0 && x < self.width && y >= 0 && y < self.height);
+        self.zones[self.grid_idx(x, y)]
     }
 
     fn wrap_cell(&mut self, x: isize, y: isize) {
         assert!(x >= 0 && x < self.width && y >= 0 && y < self.height);
         assert!(self.get_cell(x, y) == Cell::EMPTY);
-        let offset = self.coord_to_offset(x, y);
+        let idx = self.grid_idx(x, y);
         self.empty -= 1;
-        self.grid[offset] = Cell::WRAPPED;
+        let zone = self.zones[idx];
+        if zone < 255 {
+            self.zones_empty[zone as usize] -= 1;
+        }
+        self.grid[idx] = Cell::WRAPPED;
     }
 
     fn drill_cell(&mut self, x: isize, y: isize) {
         assert!(x >= 0 && x < self.width && y >= 0 && y < self.height);
         assert!(self.get_cell(x, y) == Cell::BLOCKED);
-        let offset = self.coord_to_offset(x, y);
-        self.grid[offset] = Cell::WRAPPED;
+        let idx = self.grid_idx(x, y);
+        self.grid[idx] = Cell::WRAPPED;
     }
 
     fn valid(&self, x: isize, y: isize) -> bool {
@@ -219,22 +262,28 @@ impl Level {
 }
 
 fn print_level(level: &Level, drones: &[Drone]) {
-    for y in (0..level.height).rev() {
+    for y in (0..min(50, level.height)).rev() {
         for x in 0..level.width {
             let point = Point::new(x, y);
-            let char = if let Some(idx) = drones.iter().position(|d| d.pos == point) {
-                    idx.to_string()
-                } else if drones.iter().find(|d| d.hands.iter().find(|h| {
-                    d.pos.x + h.x == x as isize && d.pos.y + h.y == y as isize && is_reaching(level, &d.pos, &h)
-                  }).is_some()).is_some() {
-                    String::from(
-                        match level.get_cell(x, y) {
-                            Cell::EMPTY   => { "*" }
-                            Cell::BLOCKED => { "█" }
-                            Cell::WRAPPED => { "+" }
-                        }
-                    )
-                } else if let Some(bonus) = level.bonuses.get(&point) {
+
+            let bg = if drones.iter().find(|d| d.hands.iter().find(|h| {
+                       d.pos.x + h.x == x as isize && d.pos.y + h.y == y as isize && is_reaching(level, &d.pos, &h)
+                     }).is_some()).is_some() { "\x1B[48;5;202m" }
+            else if level.bonuses.get(&point).is_some() { "\x1B[48;5;33m\x1B[38;5;15m" }
+            else if level.spawns.contains(&point)       { "\x1B[48;5;33m\x1B[38;5;15m" }
+            else if level.beakons.contains(&point)      { "\x1B[48;5;33m\x1B[38;5;15m" }
+            else {
+                match level.get_cell(x, y) {
+                    Cell::EMPTY   => { "\x1B[48;5;252m" }
+                    Cell::BLOCKED => { "\x1B[48;5;240m" }
+                    Cell::WRAPPED => { "\x1B[48;5;227m" }
+                }
+            };
+
+            let char = if let Some((idx, _)) = drones.iter().enumerate().find(|(idx, d)| d.hands.iter().find(|h| {
+                       d.pos.x + h.x == x as isize && d.pos.y + h.y == y as isize && is_reaching(level, &d.pos, &h)
+                     }).is_some()) { idx.to_string() }
+            else if let Some(bonus) = level.bonuses.get(&point) {
                     String::from(match bonus {
                         Bonus::HAND     => { "B" }
                         Bonus::WHEELS   => { "F" }
@@ -247,13 +296,9 @@ fn print_level(level: &Level, drones: &[Drone]) {
                 } else if level.beakons.contains(&point) {
                     String::from("T")
                 } else {
-                    String::from(match level.get_cell(x, y) {
-                        Cell::EMPTY   => { "░" }
-                        Cell::BLOCKED => { "█" }
-                        Cell::WRAPPED => { "▒" }
-                    })
+                    zone_char(level.get_zone(x, y)).to_string()
                 };
-            print!("{}", char);
+            print!("{}{}\x1B[0m", bg, char);
         }
         println!()
     }
@@ -269,12 +314,12 @@ struct Plan {
 }
 
 fn max_wrapping(level: &Level, drone: &Drone, pos: &Point) -> f64 {
-    if level.bonuses.contains_key(pos) { 
-        100.
-    } else {
+    if level.get_zone(pos.x, pos.y) != drone.zone { 0. }
+    else if level.bonuses.contains_key(pos) { 100. }
+    else {
         let mut wrapped: HashSet<Point> = HashSet::new();
         would_wrap(level, drone, pos, &mut wrapped);
-        wrapped.iter().map(|p| 1.0_f64.max(level.weights[level.coord_to_offset(p.x, p.y)] as f64)).sum()
+        wrapped.iter().map(|p| 1.0_f64.max(level.weights[level.grid_idx(p.x, p.y)] as f64)).sum()
     }
 }
 
@@ -327,9 +372,15 @@ fn step(level: &Level, drone: &Drone, from: &Point, action: &Action, wheels: boo
 fn explore<F>(level: &Level, drone: &Drone, rate: F) -> Option<VecDeque<Action>>
     where F: Fn(&Level, &Drone, &Point) -> f64
 {
+    explore_impl(level, drone, rate).and_then(|(path, _, _)| Some(path))
+}
+
+fn explore_impl<F>(level: &Level, drone: &Drone, rate: F) -> Option<(VecDeque<Action>, Point, f64)>
+    where F: Fn(&Level, &Drone, &Point) -> f64
+{
     let mut seen: HashSet<Point> = HashSet::new();
     let mut queue: VecDeque<Plan> = VecDeque::with_capacity(100);
-    let mut best: Option<(VecDeque<Action>, f64)> = None;
+    let mut best: Option<(VecDeque<Action>, Point, f64)> = None;
     let mut max_len = 5;
     queue.push_back(Plan{plan:    VecDeque::new(),
                          pos:     drone.pos,
@@ -340,7 +391,7 @@ fn explore<F>(level: &Level, drone: &Drone, rate: F) -> Option<VecDeque<Action>>
         if let Some(Plan{plan, pos, wheels, drill, drilled}) = queue.pop_front() {
             if plan.len() >= max_len {
                 if best.is_some() {
-                    break Some(best.unwrap().0)
+                    break best
                 } else {
                     max_len += 5;
                 }
@@ -349,9 +400,9 @@ fn explore<F>(level: &Level, drone: &Drone, rate: F) -> Option<VecDeque<Action>>
             let score = if plan.is_empty() { 0. } else { rate(level, drone, &pos) / plan.len() as f64 };
 
             if best.is_some() {
-                if score > best.as_ref().unwrap().1 { best = Some((plan.clone(), score)); }
+                if score > best.as_ref().unwrap().2 { best = Some((plan.clone(), pos, score)); }
             } else {
-                if score > 0. { best = Some((plan.clone(), score)); }
+                if score > 0. { best = Some((plan.clone(), pos, score)); }
             }
             
             for action in &[Action::LEFT, Action::RIGHT, Action::UP, Action::DOWN] {
@@ -371,10 +422,7 @@ fn explore<F>(level: &Level, drone: &Drone, rate: F) -> Option<VecDeque<Action>>
                     });    
                 }
             }
-        } else {
-            if best.is_some() { break Some(best.unwrap().0) }
-            else { break None }
-        }
+        } else { break best }
     }
 }
 
@@ -407,9 +455,10 @@ fn explore_spawn(level: &Level, drone: &Drone, drone_idx: usize) -> Option<VecDe
 fn print_state(level: &Level, drones: &[Drone]) {
     println!("\x1B[2J");
     print_level(level, &drones);
-    println!("Empty {} Collected {:?}", level.empty, level.collected);
+    println!("Empty {:?} Collected {:?}", level.zones_empty, level.collected);
     for (i, drone) in drones.iter().enumerate() {
-        println!("{}: active {:?} at ({},{}) plan {:?}", i, drone.active, drone.pos.x, drone.pos.y, drone.plan);
+        let plan: Vec<_> = drone.plan.iter().map(|action| match action { Action::UP => "↑", Action::DOWN => "↓", Action::LEFT => "←", Action::RIGHT => "→" }).collect();
+        println!("{}: zone {} active {:?} at ({},{}) plan {}", i, zone_char(drone.zone), drone.active, drone.pos.x, drone.pos.y, plan.join(""));
     }
     thread::sleep(time::Duration::from_millis(DELAY));
 }
@@ -423,9 +472,11 @@ fn solve(level: &mut Level, drones: &mut Vec<Drone>, interactive: bool) -> Strin
 
             if level.empty <= 0 { break; }
 
+            let taken: Vec<_> = drones.iter().map(|d| d.zone).collect();
             let mut drone = &mut drones[drone_idx];
             drone.collect(level);
             drone.wear_off();
+            drone.choose_zone(&taken, level);
             
             if drone.plan.is_empty() {
                 if let Some(clone) = drone.reduplicate(level) {

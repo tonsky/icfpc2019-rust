@@ -1,13 +1,19 @@
 use lazy_static::lazy_static;
 use regex::{Regex, Captures};
 use std::cmp;
-use std::collections::{HashSet, HashMap};
-use crate::{ Point, Line, Cell, Bonus, Drone, Level };
+use std::collections::{HashSet, HashMap, VecDeque};
+use crate::{ Point, Line, Cell, Bonus, Drone, Level, UNDECIDED_ZONE };
+use rand::{Rng, SeedableRng};
+use rand_pcg::Pcg32;
 
 lazy_static! {
     static ref POINT_RE: Regex = Regex::new(r"\((?P<X>-?\d+),(?P<Y>-?\d+)\)").unwrap();
     static ref BONUS_RE: Regex = Regex::new(r"(?P<P>[BFLRC])\((?P<X>-?\d+),(?P<Y>-?\d+)\)").unwrap();
     static ref SPAWN_RE: Regex = Regex::new(r"X\((?P<X>-?\d+),(?P<Y>-?\d+)\)").unwrap();
+}
+
+fn grid_idx(x: isize, y: isize, width: isize) -> usize {
+    (x + y * width) as usize
 }
 
 fn parse_point(s: &str) -> Point {
@@ -55,7 +61,7 @@ fn weights(grid: &[Cell], width: isize, height: isize) -> Vec<u8> {
             for (dx, dy) in &[(0,1),(0,-1),(-1,0),(1,0),(1,1),(-1,-1),(-1,1),(1,-1)] {
                 let x2 = x + dx;
                 let y2 = y + dy;
-                if x2 >= 0 && x2 < width && y2 >= 0 && y2 < height && grid[(x2 + y2 * width) as usize] == Cell::BLOCKED {
+                if x2 >= 0 && x2 < width && y2 >= 0 && y2 < height && grid[grid_idx(x2, y2, width)] == Cell::BLOCKED {
                     sum += 1;
                 }
             }
@@ -65,7 +71,43 @@ fn weights(grid: &[Cell], width: isize, height: isize) -> Vec<u8> {
     weights
 }
 
-fn build_level(walls: &HashSet<Point>) -> Level {
+fn zones(zones_count: usize, grid: &[Cell], width: isize, height: isize) -> (Vec<u8>, Vec<usize>) {
+    let len = (width * height) as usize;
+
+    let mut zones: Vec<u8> = Vec::with_capacity(len);
+    for i in 0..len { zones.push(UNDECIDED_ZONE); }
+
+    let mut zones_empty: Vec<usize> = Vec::with_capacity(zones_count);
+    for i in 0..zones_count { zones_empty.push(0); }
+
+    let mut queue: VecDeque<(Point, u8)> = VecDeque::with_capacity(len);
+    let mut rng = rand_pcg::Pcg32::seed_from_u64(42);
+    while queue.len() < zones_count {
+        let x = rng.gen_range(0, width);
+        let y = rng.gen_range(0, height);
+        let idx = grid_idx(x, y, width);
+        let point = Point::new(x, y);
+        if grid[idx] == Cell::EMPTY && queue.iter().find(|(p, _)| *p == point).is_none() {
+            queue.push_back((point, queue.len() as u8));
+        }
+    }
+
+    while let Some((Point{x, y}, zone)) = queue.pop_front() {
+        let idx = grid_idx(x, y, width);
+        if zones[idx] == UNDECIDED_ZONE && grid[idx] == Cell::EMPTY {
+            zones_empty[zone as usize] += 1;
+            zones[idx] = zone;
+            if y + 1 < height { queue.push_back((Point::new(x, y + 1), zone)); }
+            if y > 0          { queue.push_back((Point::new(x, y - 1), zone)); }
+            if x + 1 < width  { queue.push_back((Point::new(x + 1, y), zone)); }
+            if x > 0          { queue.push_back((Point::new(x - 1, y), zone)); }
+        }
+    }
+
+    (zones, zones_empty)
+}
+
+fn build_level(walls: &HashSet<Point>, zones_count: usize) -> Level {
     let height = walls.iter().max_by_key(|p| p.y).unwrap().y + 1;
     let width = walls.iter().max_by_key(|p| p.x).unwrap().x;
     let mut grid = Vec::with_capacity((width * height) as usize);
@@ -82,8 +124,9 @@ fn build_level(walls: &HashSet<Point>) -> Level {
         assert_eq!(walls.contains(&Point::new(width, y)), Cell::EMPTY == last_cell);
     }
     let weights = weights(&grid, width, height);
+    let (zones, zones_empty) = zones(zones_count, &grid, width, height);
     Level {
-        grid, weights, width, height, empty,
+        grid, weights, zones, width, height, empty, zones_empty, 
         spawns:    HashSet::new(),
         beakons:   HashSet::new(),
         bonuses:   HashMap::new(),
@@ -99,7 +142,9 @@ pub fn parse_level(file: &str) -> (Level, Vec<Drone>) {
             for obstacle_str in obstacles_str.split(";").filter(|s| !s.is_empty()) {
                 walls.extend(parse_contour(obstacle_str));
             }
-            let mut level = build_level(&walls);
+            let clones = Regex::new(r"C\(\d+,\d+\)").unwrap().find_iter(bonuses_str).count();
+            let mut level = build_level(&walls, clones + 1);
+
             for captures in BONUS_RE.captures_iter(bonuses_str) {
                 let (pos, bonus) = parse_bonus(captures);
                 level.bonuses.insert(pos, bonus);
