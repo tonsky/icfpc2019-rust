@@ -27,7 +27,7 @@ struct Line { from: Point, to: Point }
 enum Cell { EMPTY, BLOCKED, WRAPPED }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-enum Action { UP, RIGHT, DOWN, LEFT }
+enum Action { UP, RIGHT, DOWN, LEFT, JUMP0, JUMP1, JUMP2 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Bonus { HAND, WHEELS, DRILL, TELEPORT, CLONE }
@@ -178,6 +178,17 @@ impl Drone {
         } else { false }
     }
 
+    fn set_beakon(&mut self, level: &mut Level) -> bool {
+        if get_or(&level.collected, &Bonus::TELEPORT, 0) > 0
+           && level.beakons.iter().all(|b| (b.x - self.pos.x).abs() + (b.y - self.pos.y).abs() >= 50)
+        {
+            update(&mut level.collected, Bonus::TELEPORT, -1);
+            self.path += "R";
+            level.beakons.push(self.pos);
+            true
+        } else { false }
+    }
+
     fn reduplicate(&mut self, level: &mut Level) -> Option<Drone> {
         if get_or(&level.collected, &Bonus::CLONE, 0) > 0 && level.spawns.contains(&self.pos) {
             update(&mut level.collected, Bonus::CLONE, -1);
@@ -191,7 +202,15 @@ impl Drone {
         let drill = self.is_active(&Bonus::DRILL);
         if let Some((pos, new_wrapped, new_drilled)) = step(level, self, &self.pos, action, wheels, drill, &HashSet::new()) {
             self.pos = pos;
-            self.path += match action { Action::UP => "W", Action::DOWN => "S", Action::LEFT => "A", Action::RIGHT => "D" };
+            match action { 
+                Action::UP    => self.path += "W", 
+                Action::DOWN  => self.path += "S", 
+                Action::LEFT  => self.path += "A", 
+                Action::RIGHT => self.path += "D",
+                Action::JUMP0 => self.path += &format!("T({},{})", level.beakons[0].x, level.beakons[0].y),
+                Action::JUMP1 => self.path += &format!("T({},{})", level.beakons[1].x, level.beakons[1].y),
+                Action::JUMP2 => self.path += &format!("T({},{})", level.beakons[2].x, level.beakons[2].y)
+            };
             for p in new_wrapped {
                 level.wrap_cell(p.x, p.y);
             }
@@ -213,7 +232,7 @@ pub struct Level {
     empty:       usize,
     zones_empty: Vec<usize>,
     spawns:      HashSet<Point>,
-    beakons:     HashSet<Point>,
+    beakons:     Vec<Point>,
     bonuses:     HashMap<Point, Bonus>,
     collected:   HashMap<Bonus, usize>
 }
@@ -262,10 +281,10 @@ impl Level {
 }
 
 fn print_level(level: &Level, drones: &[Drone]) {
-    let ymin = max(0, drones[0].pos.y - 25);
-    let ymax = min(ymin + 50, level.height);
-    let xmin = max(0, drones[0].pos.x - 50);
-    let xmax = min(xmin + 100, level.width);
+    let ymin = max(0, min(drones[0].pos.y - 25, level.height - 50));
+    let ymax = min(max(drones[0].pos.y + 25, 50), level.height);
+    let xmin = max(0, min(drones[0].pos.x - 50, level.width - 100));
+    let xmax = min(max(drones[0].pos.x + 50, 100), level.width);
 
     for y in (ymin..ymax).rev() {
         for x in xmin..xmax {
@@ -298,8 +317,8 @@ fn print_level(level: &Level, drones: &[Drone]) {
                     })
                 } else if level.spawns.contains(&point) {
                     String::from("X")
-                } else if level.beakons.contains(&point) {
-                    String::from("T")
+                } else if let Some(beakon_idx) = level.beakons.iter().position(|&x| x == point) {
+                    beakon_idx.to_string()
                 } else {
                     zone_char(level.get_zone(x, y)).to_string()
                 };
@@ -343,13 +362,8 @@ fn would_wrap(level: &Level, drone: &Drone, pos: &Point, wrapped: &mut HashSet<P
     }
 }
 
-fn step(level: &Level, drone: &Drone, from: &Point, action: &Action, wheels: bool, drill: bool, drilled: &HashSet<Point>) -> Option<(Point, HashSet<Point>, HashSet<Point>)> {
-    let (dx, dy) = match action {
-        Action::LEFT  => (-1,  0),
-        Action::RIGHT => ( 1,  0),
-        Action::UP    => ( 0,  1),
-        Action::DOWN  => ( 0, -1)
-    };
+fn step_move(level: &Level, drone: &Drone, from: &Point, dx: isize, dy: isize, wheels: bool, drill: bool, drilled: &HashSet<Point>) -> Option<(Point, HashSet<Point>, HashSet<Point>)>
+{
     let mut to = Point::new(from.x + dx, from.y + dy);
     let mut new_wrapped = HashSet::new();
     let mut new_drilled = HashSet::new();
@@ -371,6 +385,30 @@ fn step(level: &Level, drone: &Drone, from: &Point, action: &Action, wheels: boo
         Some((to, new_wrapped, new_drilled))
     } else {
         None
+    }
+}
+
+fn step_jump(level: &Level, drone: &Drone, beakon_idx: usize) -> Option<(Point, HashSet<Point>, HashSet<Point>)>
+{
+    if beakon_idx < level.beakons.len() {
+        let to = level.beakons[beakon_idx];
+        let mut new_wrapped = HashSet::new();
+        would_wrap(level, drone, &to, &mut new_wrapped);
+        Some((to, new_wrapped, HashSet::new()))
+    } else {
+        None
+    }
+}
+
+fn step(level: &Level, drone: &Drone, from: &Point, action: &Action, wheels: bool, drill: bool, drilled: &HashSet<Point>) -> Option<(Point, HashSet<Point>, HashSet<Point>)> {
+    match action {
+        Action::LEFT  => step_move(level, drone, from, -1,  0, wheels, drill, drilled),
+        Action::RIGHT => step_move(level, drone, from,  1,  0, wheels, drill, drilled),
+        Action::UP    => step_move(level, drone, from,  0,  1, wheels, drill, drilled),
+        Action::DOWN  => step_move(level, drone, from,  0, -1, wheels, drill, drilled),
+        Action::JUMP0 => step_jump(level, drone, 0),
+        Action::JUMP1 => step_jump(level, drone, 1),
+        Action::JUMP2 => step_jump(level, drone, 2)
     }
 }
 
@@ -410,7 +448,7 @@ fn explore_impl<F>(level: &Level, drone: &Drone, rate: F) -> Option<(VecDeque<Ac
                 if score > 0. { best = Some((plan.clone(), pos, score)); }
             }
             
-            for action in &[Action::LEFT, Action::RIGHT, Action::UP, Action::DOWN] {
+            for action in &[Action::LEFT, Action::RIGHT, Action::UP, Action::DOWN, Action::JUMP0, Action::JUMP1, Action::JUMP2] {
                 if let Some((pos2, new_wrapped, new_drilled)) = step(level, drone, &pos, action, wheels > 0, drill > 0, &drilled) {
                     if seen.contains(&pos2) { continue; }
                     seen.insert(pos2);
@@ -462,7 +500,7 @@ fn print_state(level: &Level, drones: &[Drone]) {
     print_level(level, &drones);
     println!("Empty {:?} Collected {:?}", level.zones_empty, level.collected);
     for (i, drone) in drones.iter().enumerate() {
-        let plan: Vec<_> = drone.plan.iter().map(|action| match action { Action::UP => "↑", Action::DOWN => "↓", Action::LEFT => "←", Action::RIGHT => "→" }).collect();
+        let plan: Vec<_> = drone.plan.iter().map(|action| match action { Action::UP => "↑", Action::DOWN => "↓", Action::LEFT => "←", Action::RIGHT => "→", Action::JUMP0 => "T0", Action::JUMP1 => "T1", Action::JUMP2 => "T2", }).collect();
         println!("{}: zone {} active {:?} at ({},{}) plan {}", i, zone_char(drone.zone), drone.active, drone.pos.x, drone.pos.y, plan.join(""));
     }
     thread::sleep(time::Duration::from_millis(DELAY));
@@ -491,6 +529,7 @@ fn solve(level: &mut Level, drones: &mut Vec<Drone>, interactive: bool) -> Strin
                 if drone.activate_wheels(level)
                    || drone.activate_drill(level)
                    || drone.activate_hand(level)
+                   || drone.set_beakon(level)
                 { continue; }
 
                 if let Some(plan) = explore_clone(level, drone, drone_idx)

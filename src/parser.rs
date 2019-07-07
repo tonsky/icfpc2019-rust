@@ -128,7 +128,7 @@ fn build_level(walls: &HashSet<Point>, zones_count: usize) -> Level {
     Level {
         grid, weights, zones, width, height, empty, zones_empty, 
         spawns:    HashSet::new(),
-        beakons:   HashSet::new(),
+        beakons:   Vec::new(),
         bonuses:   HashMap::new(),
         collected: HashMap::new()
     }
