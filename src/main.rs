@@ -8,6 +8,7 @@ use std::fs::{File};
 use std::io::prelude::*;
 use std::collections::{HashSet, HashMap, VecDeque};
 use std::time::{Instant};
+use std::sync::{Mutex, Arc};
 use regex::Regex;
 use lazy_static::lazy_static;
 
@@ -506,7 +507,7 @@ fn print_state(level: &Level, drones: &[Drone]) {
     thread::sleep(time::Duration::from_millis(DELAY));
 }
 
-fn solve(level: &mut Level, drones: &mut Vec<Drone>, interactive: bool) -> String {
+fn solve_impl(level: &mut Level, drones: &mut Vec<Drone>, interactive: bool) -> String {
     if interactive { println!("\x1B[?1049h"); }
     drones[0].wrap_bot(level);
     while level.empty > 0 {
@@ -558,31 +559,74 @@ fn solve(level: &mut Level, drones: &mut Vec<Drone>, interactive: bool) -> Strin
     paths.join("#")
 }
 
+fn solve(filename: &str, interactive: bool) {
+    if let Ok(contents) = fs::read_to_string(filename) {
+        let t_start = Instant::now();
+        let (mut level, mut drones) = parser::parse_level(&contents);
+        let solution = solve_impl(&mut level, &mut drones, interactive);
+        let score = solution.split("#").map(|s| Regex::new(r"[A-Z]").unwrap().find_iter(s).count()).max().unwrap();
+        println!("{} \tscore {} \ttime {} ms", filename, score, t_start.elapsed().as_millis());
+
+        let filename_sol = Regex::new(r"\.desc$").unwrap().replace(filename, ".sol");
+        let mut file = File::create(filename_sol.into_owned()).unwrap();
+        file.write_all(solution.as_bytes()).unwrap();
+    } else {
+        println!("Failed to read {}", filename);
+    }
+}
+
+fn doall<T, F>(tasks: VecDeque<T>, threads: usize, f: F)
+    where F: Fn(T),
+          F: Copy + Send + 'static,
+          T: Send + 'static
+{
+    let m_queue = Arc::new(Mutex::new(tasks));
+    let mut handles = vec![];
+
+    for i in 0..threads {
+        let m_queue = Arc::clone(&m_queue);
+        let handle = thread::spawn(move || loop {
+            let o_task = { 
+                let mut queue = m_queue.lock().unwrap();
+                queue.pop_front()
+            };
+            if let Some(task) = o_task {
+                f(task);
+            } else {
+                break;
+            }
+        });
+        handles.push(handle);
+    }
+
+    for handle in handles {
+        handle.join().unwrap();
+    }
+}
+
 fn main() {
     let t_start = Instant::now();
     let args: Vec<String> = env::args().collect();
+    let threads_re = Regex::new(r"--threads=([1-9][0-9]*)").unwrap();
     let mut interactive = false;
-    let mut filename: Option<&str> = None;
+    let mut threads = 1;
+    let mut filenames: VecDeque<String> = VecDeque::new();
     
     for arg in args[1..].iter() {
-        if arg == "--interactive" { interactive = true; }
-        else if arg.ends_with(".desc") { filename = Some(arg); }
-        else { panic!("cargo run [--interactive] <path/to/problem.desc>"); }
+        if arg == "--interactive" {
+            interactive = true;
+        } else if let Some(caps) = threads_re.captures(arg) {
+            threads = caps.get(1).unwrap().as_str().parse::<isize>().unwrap() as usize;
+        } else if arg.ends_with(".desc") { 
+            filenames.push_back(arg.clone());
+        } else { 
+            panic!("cargo run --release [--interactive] [--threads=N] <path/to/problem.desc>");
+        }
     }
     
-    let contents = fs::read_to_string(filename.unwrap()).unwrap();
-    // let mut input = String::new();
-    // io::stdin().read_line(&mut input).unwrap();
-    let (mut level, mut drones) = parser::parse_level(&contents);
-    let solution = solve(&mut level, &mut drones, interactive);
-    // let score = Regex::new(r"[A-Z]").unwrap().find_iter(&solution).count();
-    let score = solution.split("#").map(|s| Regex::new(r"[A-Z]").unwrap().find_iter(s).count()).max().unwrap();
-
-    eprintln!("{} \tscore {} \ttime {} ms", filename.unwrap(), score, t_start.elapsed().as_millis());
-    
-    let filename_sol = Regex::new(r"\.desc$").unwrap().replace(filename.unwrap(), ".sol");
-    let mut file = File::create(filename_sol.into_owned()).unwrap();
-    file.write_all(solution.as_bytes()).unwrap();
-
-    // println!("{}", solution);
+    let tasks = filenames.len();
+    doall(filenames, threads, move |f| solve(&f, interactive));
+    if tasks > 1 {
+        println!("Finished {} tasks in {} ms", tasks, t_start.elapsed().as_millis());
+    }
 }

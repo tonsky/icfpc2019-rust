@@ -2,5 +2,5 @@
 /target.nosync
 **/*.rs.bk
 .idea
-problems/*.sol
 problems/*.buy
+*.sol

@@ -2,7 +2,4 @@
 
 cargo build --release
 
-for file in problems/prob-*.desc
-do
-    ./target/release/icfpc2019 $file
-done
+./target/release/icfpc2019 problems/*.desc --threads 12

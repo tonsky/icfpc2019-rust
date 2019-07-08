@@ -19,5 +19,5 @@ cargo run --release problems/prob-049.desc
 Solve all:
 
 ```
-./script/run_all
+cargo run --release problems/*.desc --threads=12
 ```
