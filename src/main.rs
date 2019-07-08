@@ -77,7 +77,8 @@ fn zone_char(zone: Zone) -> char {
 pub struct Drone {
     pos:    Point,
     hands:  Vec<Point>,
-    active: HashMap<Bonus, usize>,
+    wheels: usize,
+    drill:  usize,
     path:   String,
     plan:   VecDeque<Action>,
     zone:   Zone
@@ -87,14 +88,11 @@ impl Drone {
     fn new(pos: Point) -> Drone {
         Drone { pos, 
                 hands:  vec![Point::new(0,0), Point::new(1,-1), Point::new(1,0), Point::new(1,1)],
-                active: HashMap::new(),
+                wheels: 0,
+                drill:  0,
                 path:   String::new(),
                 plan:   VecDeque::new(),
                 zone:   UNDECIDED_ZONE}
-    }
-
-    fn is_active(&self, bonus: &Bonus) -> bool {
-        get_or(&self.active, bonus, 0) > 0
     }
 
     fn wrap_bot(&self, level: &mut Level) {
@@ -139,7 +137,8 @@ impl Drone {
     }
 
     fn wear_off(&mut self) {
-        self.active.retain(|_, val| { *val -= 1; *val > 0 });
+        if self.wheels > 0 { self.wheels -= 1; }
+        if self.drill > 0 { self.drill -= 1; }
     }
 
     fn has_space(&self, level: &Level) -> bool {
@@ -151,19 +150,20 @@ impl Drone {
 
     fn activate_wheels(&mut self, level: &mut Level) -> bool {
         if get_or(&level.collected, &Bonus::WHEELS, 0) > 0
-           && !self.is_active(&Bonus::WHEELS)
+           && self.wheels == 0
            && self.has_space(level) {
             update(&mut level.collected, Bonus::WHEELS, -1);
-            update(&mut self.active, Bonus::WHEELS, 51);
+            self.wheels = 51;
             self.path += "F";
             true
         } else { false }
     }
 
     fn activate_drill(&mut self, level: &mut Level) -> bool {
-        if get_or(&level.collected, &Bonus::DRILL, 0) > 0 && !self.is_active(&Bonus::DRILL) {
+        if get_or(&level.collected, &Bonus::DRILL, 0) > 0
+           && self.drill == 0 {
             update(&mut level.collected, Bonus::DRILL, -1);
-            update(&mut self.active, Bonus::DRILL, 31);
+            self.drill = 31;
             self.path += "L";
             true
         } else { false }
@@ -199,8 +199,8 @@ impl Drone {
     }
 
     fn act(&mut self, action: &Action, level: &mut Level) {
-        let wheels = self.is_active(&Bonus::WHEELS);
-        let drill = self.is_active(&Bonus::DRILL);
+        let wheels = self.wheels > 0;
+        let drill = self.drill > 0;
         if let Some((pos, new_wrapped, new_drilled)) = step(level, self, &self.pos, action, wheels, drill, &HashSet::new()) {
             self.pos = pos;
             match action { 
@@ -428,8 +428,8 @@ fn explore_impl<F>(level: &Level, drone: &Drone, rate: F) -> Option<(VecDeque<Ac
     let mut max_len = 5;
     queue.push_back(Plan{plan:    VecDeque::new(),
                          pos:     drone.pos,
-                         wheels:  get_or(&drone.active, &Bonus::WHEELS, 0),
-                         drill:   get_or(&drone.active, &Bonus::DRILL, 0),
+                         wheels:  drone.wheels,
+                         drill:   drone.drill,
                          drilled: HashSet::new() });
     loop {
         if let Some(Plan{plan, pos, wheels, drill, drilled}) = queue.pop_front() {
@@ -502,7 +502,7 @@ fn print_state(level: &Level, drones: &[Drone]) {
     println!("Empty {:?} Collected {:?}", level.zones_empty, level.collected);
     for (i, drone) in drones.iter().enumerate() {
         let plan: Vec<_> = drone.plan.iter().map(|action| match action { Action::UP => "↑", Action::DOWN => "↓", Action::LEFT => "←", Action::RIGHT => "→", Action::JUMP0 => "T0", Action::JUMP1 => "T1", Action::JUMP2 => "T2", }).collect();
-        println!("{}: zone {} active {:?} at ({},{}) plan {}", i, zone_char(drone.zone), drone.active, drone.pos.x, drone.pos.y, plan.join(""));
+        println!("{}: zone {} wheels {} drill {} at ({},{}) plan {}", i, zone_char(drone.zone), drone.wheels, drone.drill, drone.pos.x, drone.pos.y, plan.join(""));
     }
     thread::sleep(time::Duration::from_millis(DELAY));
 }
@@ -542,7 +542,7 @@ fn solve_impl(level: &mut Level, drones: &mut Vec<Drone>, interactive: bool) -> 
             
             if let Some(action) = drone.plan.pop_front() {
                 drone.act(&action, level);
-            } else if get_or(&drone.active, &Bonus::WHEELS, 0) > 0 {
+            } else if drone.wheels > 0 {
                 drone.path += "Z";
             } else {
                 panic!("Nothing to do");
