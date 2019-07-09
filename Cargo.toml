@@ -10,3 +10,14 @@ regex = "1"
 lazy_static = "1"
 rand_pcg = "0.2"
 rand = "0.7"
+
+[profile.release]
+opt-level = 3
+debug = false
+rpath = false
+lto = true
+debug-assertions = false
+codegen-units = 1
+panic = 'abort'
+incremental = false
+overflow-checks = false
