@@ -56,31 +56,55 @@ fn update<K>(m: &mut FnvHashMap<K, usize>, k: K, delta: isize)
     if new_v > 0 { m.insert(k, new_v as usize); }
     else { m.remove(&k); }
 }
+lazy_static! {
+    static ref BLOCKER0_0: Vec<Point> = vec![Point::new(0, 0)];
+    static ref BLOCKER1_M1: Vec<Point> = vec![Point::new(1, -1)];
+    static ref BLOCKER1_0: Vec<Point> = vec![Point::new(1, 0)];
+    static ref BLOCKER1_1: Vec<Point> = vec![Point::new(1, 1)];
+    static ref BLOCKER2: Vec<Point> = vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 1, y: 1}, Point{x: 1, y: 2}, Point{x: 1, y: 3}];
+    static ref BLOCKER3: Vec<Point> = vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 1, y: 2}, Point{x: 1, y: 3}, Point{x: 1, y: 4}];
+    static ref BLOCKER4: Vec<Point> = vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 1, y: 2}, Point{x: 1, y: 3}, Point{x: 1, y: 4}, Point{x: 1, y: 5}];
+    static ref BLOCKER5: Vec<Point> = vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 1, y: 3}, Point{x: 1, y: 4}, Point{x: 1, y: 5}, Point{x: 1, y: 6}];
+    static ref BLOCKER6: Vec<Point> = vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 1, y: 3}, Point{x: 1, y: 4}, Point{x: 1, y: 5}, Point{x: 1, y: 6}, Point{x: 1, y: 7}];
+    static ref BLOCKER7: Vec<Point> = vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 1, y: 4}, Point{x: 1, y: 5}, Point{x: 1, y: 6}, Point{x: 1, y: 7}, Point{x: 1, y: 8}];
+    static ref BLOCKER8: Vec<Point> = vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 1, y: 4}, Point{x: 1, y: 5}, Point{x: 1, y: 6}, Point{x: 1, y: 7}, Point{x: 1, y: 8}, Point{x: 1, y: 9}];
+    static ref BLOCKER9: Vec<Point> = vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 1, y: 5}, Point{x: 1, y: 6}, Point{x: 1, y: 7}, Point{x: 1, y: 8}, Point{x: 1, y: 9}, Point{x: 1, y: 10}];
+    static ref BLOCKER10: Vec<Point> = vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 1, y: 5}, Point{x: 1, y: 6}, Point{x: 1, y: 7}, Point{x: 1, y: 8}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}];
+    static ref BLOCKER11: Vec<Point> = vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 1, y: 6}, Point{x: 1, y: 7}, Point{x: 1, y: 8}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}];
+    static ref BLOCKER12: Vec<Point> = vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 0, y: 7}, Point{x: 1, y: 6}, Point{x: 1, y: 7}, Point{x: 1, y: 8}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}, Point{x: 1, y: 13}];
+    static ref BLOCKER13: Vec<Point> = vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 0, y: 7}, Point{x: 1, y: 7}, Point{x: 1, y: 8}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}, Point{x: 1, y: 13}, Point{x: 1, y: 14}];
+    static ref BLOCKER14: Vec<Point> = vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 0, y: 7}, Point{x: 0, y: 8}, Point{x: 1, y: 7}, Point{x: 1, y: 8}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}, Point{x: 1, y: 13}, Point{x: 1, y: 14}, Point{x: 1, y: 15}];
+    static ref BLOCKER15: Vec<Point> = vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 0, y: 7}, Point{x: 0, y: 8}, Point{x: 1, y: 8}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}, Point{x: 1, y: 13}, Point{x: 1, y: 14}, Point{x: 1, y: 15}, Point{x: 1, y: 16}];
+    static ref BLOCKER16: Vec<Point> = vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 0, y: 7}, Point{x: 0, y: 8}, Point{x: 0, y: 9}, Point{x: 1, y: 8}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}, Point{x: 1, y: 13}, Point{x: 1, y: 14}, Point{x: 1, y: 15}, Point{x: 1, y: 16}, Point{x: 1, y: 17}];
+    static ref BLOCKER17: Vec<Point> = vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 0, y: 7}, Point{x: 0, y: 8}, Point{x: 0, y: 9}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}, Point{x: 1, y: 13}, Point{x: 1, y: 14}, Point{x: 1, y: 15}, Point{x: 1, y: 16}, Point{x: 1, y: 17}, Point{x: 1, y: 18}];
+    static ref BLOCKER18: Vec<Point> = vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 0, y: 7}, Point{x: 0, y: 8}, Point{x: 0, y: 9}, Point{x: 0, y: 10}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}, Point{x: 1, y: 13}, Point{x: 1, y: 14}, Point{x: 1, y: 15}, Point{x: 1, y: 16}, Point{x: 1, y: 17}, Point{x: 1, y: 18}, Point{x: 1, y: 19}];
+    static ref BLOCKER19: Vec<Point> = vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 0, y: 7}, Point{x: 0, y: 8}, Point{x: 0, y: 9}, Point{x: 0, y: 10}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}, Point{x: 1, y: 13}, Point{x: 1, y: 14}, Point{x: 1, y: 15}, Point{x: 1, y: 16}, Point{x: 1, y: 17}, Point{x: 1, y: 18}, Point{x: 1, y: 19}, Point{x: 1, y: 20}];
+}
 
-fn hand_blocker(p: &Point) -> Vec<Point> {
+fn hand_blocker(p: &Point) -> &Vec<Point> {
     match p {
-        Point{x: 0, y: 0}  => vec![Point::new(0, 0)],
-        Point{x: 1, y: -1} => vec![Point::new(1, -1)],
-        Point{x: 1, y: 0}  => vec![Point::new(1, 0)],
-        Point{x: 1, y: 1}  => vec![Point::new(1, 1)],
-        Point{x: 1, y: 2} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 1, y: 1}, Point{x: 1, y: 2}, Point{x: 1, y: 3}],
-        Point{x: 1, y: 3} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 1, y: 2}, Point{x: 1, y: 3}, Point{x: 1, y: 4}],
-        Point{x: 1, y: 4} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 1, y: 2}, Point{x: 1, y: 3}, Point{x: 1, y: 4}, Point{x: 1, y: 5}],
-        Point{x: 1, y: 5} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 1, y: 3}, Point{x: 1, y: 4}, Point{x: 1, y: 5}, Point{x: 1, y: 6}],
-        Point{x: 1, y: 6} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 1, y: 3}, Point{x: 1, y: 4}, Point{x: 1, y: 5}, Point{x: 1, y: 6}, Point{x: 1, y: 7}],
-        Point{x: 1, y: 7} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 1, y: 4}, Point{x: 1, y: 5}, Point{x: 1, y: 6}, Point{x: 1, y: 7}, Point{x: 1, y: 8}],
-        Point{x: 1, y: 8} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 1, y: 4}, Point{x: 1, y: 5}, Point{x: 1, y: 6}, Point{x: 1, y: 7}, Point{x: 1, y: 8}, Point{x: 1, y: 9}],
-        Point{x: 1, y: 9} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 1, y: 5}, Point{x: 1, y: 6}, Point{x: 1, y: 7}, Point{x: 1, y: 8}, Point{x: 1, y: 9}, Point{x: 1, y: 10}],
-        Point{x: 1, y: 10} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 1, y: 5}, Point{x: 1, y: 6}, Point{x: 1, y: 7}, Point{x: 1, y: 8}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}],
-        Point{x: 1, y: 11} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 1, y: 6}, Point{x: 1, y: 7}, Point{x: 1, y: 8}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}],
-        Point{x: 1, y: 12} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 0, y: 7}, Point{x: 1, y: 6}, Point{x: 1, y: 7}, Point{x: 1, y: 8}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}, Point{x: 1, y: 13}],
-        Point{x: 1, y: 13} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 0, y: 7}, Point{x: 1, y: 7}, Point{x: 1, y: 8}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}, Point{x: 1, y: 13}, Point{x: 1, y: 14}],
-        Point{x: 1, y: 14} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 0, y: 7}, Point{x: 0, y: 8}, Point{x: 1, y: 7}, Point{x: 1, y: 8}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}, Point{x: 1, y: 13}, Point{x: 1, y: 14}, Point{x: 1, y: 15}],
-        Point{x: 1, y: 15} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 0, y: 7}, Point{x: 0, y: 8}, Point{x: 1, y: 8}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}, Point{x: 1, y: 13}, Point{x: 1, y: 14}, Point{x: 1, y: 15}, Point{x: 1, y: 16}],
-        Point{x: 1, y: 16} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 0, y: 7}, Point{x: 0, y: 8}, Point{x: 0, y: 9}, Point{x: 1, y: 8}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}, Point{x: 1, y: 13}, Point{x: 1, y: 14}, Point{x: 1, y: 15}, Point{x: 1, y: 16}, Point{x: 1, y: 17}],
-        Point{x: 1, y: 17} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 0, y: 7}, Point{x: 0, y: 8}, Point{x: 0, y: 9}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}, Point{x: 1, y: 13}, Point{x: 1, y: 14}, Point{x: 1, y: 15}, Point{x: 1, y: 16}, Point{x: 1, y: 17}, Point{x: 1, y: 18}],
-        Point{x: 1, y: 18} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 0, y: 7}, Point{x: 0, y: 8}, Point{x: 0, y: 9}, Point{x: 0, y: 10}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}, Point{x: 1, y: 13}, Point{x: 1, y: 14}, Point{x: 1, y: 15}, Point{x: 1, y: 16}, Point{x: 1, y: 17}, Point{x: 1, y: 18}, Point{x: 1, y: 19}],
-        Point{x: 1, y: 19} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 0, y: 7}, Point{x: 0, y: 8}, Point{x: 0, y: 9}, Point{x: 0, y: 10}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}, Point{x: 1, y: 13}, Point{x: 1, y: 14}, Point{x: 1, y: 15}, Point{x: 1, y: 16}, Point{x: 1, y: 17}, Point{x: 1, y: 18}, Point{x: 1, y: 19}, Point{x: 1, y: 20}],
+        Point{x: 0, y: 0}  => &BLOCKER0_0,
+        Point{x: 1, y: -1} => &BLOCKER1_M1,
+        Point{x: 1, y: 0}  => &BLOCKER1_0,
+        Point{x: 1, y: 1}  => &BLOCKER1_1,
+        Point{x: 1, y: 2} => &BLOCKER2,
+        Point{x: 1, y: 3} => &BLOCKER3,
+        Point{x: 1, y: 4} => &BLOCKER4,
+        Point{x: 1, y: 5} => &BLOCKER5,
+        Point{x: 1, y: 6} => &BLOCKER6,
+        Point{x: 1, y: 7} => &BLOCKER7,
+        Point{x: 1, y: 8} => &BLOCKER8,
+        Point{x: 1, y: 9} => &BLOCKER9,
+        Point{x: 1, y: 10} => &BLOCKER10,
+        Point{x: 1, y: 11} => &BLOCKER11,
+        Point{x: 1, y: 12} => &BLOCKER12,
+        Point{x: 1, y: 13} => &BLOCKER13,
+        Point{x: 1, y: 14} => &BLOCKER14,
+        Point{x: 1, y: 15} => &BLOCKER15,
+        Point{x: 1, y: 16} => &BLOCKER16,
+        Point{x: 1, y: 17} => &BLOCKER17,
+        Point{x: 1, y: 18} => &BLOCKER18,
+        Point{x: 1, y: 19} => &BLOCKER19,
         _ => unimplemented!()
     }
 }
