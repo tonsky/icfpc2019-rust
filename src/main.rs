@@ -57,30 +57,39 @@ fn update<K>(m: &mut FnvHashMap<K, usize>, k: K, delta: isize)
     else { m.remove(&k); }
 }
 
-fn hand_blockers() -> FnvHashMap<Point, Vec<Point>> {
-    let mut res = FnvHashMap::default();
-    res.insert(Point::new(0,  0), vec![Point::new(0,  0)]);
-    res.insert(Point::new(1, -1), vec![Point::new(1, -1)]);
-    res.insert(Point::new(1,  0), vec![Point::new(1,  0)]);
-    res.insert(Point::new(1,  1), vec![Point::new(1,  1)]);
-    for maxy in 2..19 {
-        let mut val = Vec::with_capacity(maxy);
-        for y in 1..(maxy/2+1) { val.push(Point::new(0, y as isize)) }
-        for y in (maxy+1)/2..(maxy+1) { val.push(Point::new(1, y as isize)) }
-        res.insert(Point::new(1, maxy as isize), val);
+fn hand_blocker(p: &Point) -> Vec<Point> {
+    match p {
+        Point{x: 0, y: 0}  => vec![Point::new(0, 0)],
+        Point{x: 1, y: -1} => vec![Point::new(1, -1)],
+        Point{x: 1, y: 0}  => vec![Point::new(1, 0)],
+        Point{x: 1, y: 1}  => vec![Point::new(1, 1)],
+        Point{x: 1, y: 2} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 1, y: 1}, Point{x: 1, y: 2}, Point{x: 1, y: 3}],
+        Point{x: 1, y: 3} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 1, y: 2}, Point{x: 1, y: 3}, Point{x: 1, y: 4}],
+        Point{x: 1, y: 4} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 1, y: 2}, Point{x: 1, y: 3}, Point{x: 1, y: 4}, Point{x: 1, y: 5}],
+        Point{x: 1, y: 5} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 1, y: 3}, Point{x: 1, y: 4}, Point{x: 1, y: 5}, Point{x: 1, y: 6}],
+        Point{x: 1, y: 6} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 1, y: 3}, Point{x: 1, y: 4}, Point{x: 1, y: 5}, Point{x: 1, y: 6}, Point{x: 1, y: 7}],
+        Point{x: 1, y: 7} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 1, y: 4}, Point{x: 1, y: 5}, Point{x: 1, y: 6}, Point{x: 1, y: 7}, Point{x: 1, y: 8}],
+        Point{x: 1, y: 8} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 1, y: 4}, Point{x: 1, y: 5}, Point{x: 1, y: 6}, Point{x: 1, y: 7}, Point{x: 1, y: 8}, Point{x: 1, y: 9}],
+        Point{x: 1, y: 9} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 1, y: 5}, Point{x: 1, y: 6}, Point{x: 1, y: 7}, Point{x: 1, y: 8}, Point{x: 1, y: 9}, Point{x: 1, y: 10}],
+        Point{x: 1, y: 10} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 1, y: 5}, Point{x: 1, y: 6}, Point{x: 1, y: 7}, Point{x: 1, y: 8}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}],
+        Point{x: 1, y: 11} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 1, y: 6}, Point{x: 1, y: 7}, Point{x: 1, y: 8}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}],
+        Point{x: 1, y: 12} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 0, y: 7}, Point{x: 1, y: 6}, Point{x: 1, y: 7}, Point{x: 1, y: 8}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}, Point{x: 1, y: 13}],
+        Point{x: 1, y: 13} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 0, y: 7}, Point{x: 1, y: 7}, Point{x: 1, y: 8}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}, Point{x: 1, y: 13}, Point{x: 1, y: 14}],
+        Point{x: 1, y: 14} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 0, y: 7}, Point{x: 0, y: 8}, Point{x: 1, y: 7}, Point{x: 1, y: 8}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}, Point{x: 1, y: 13}, Point{x: 1, y: 14}, Point{x: 1, y: 15}],
+        Point{x: 1, y: 15} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 0, y: 7}, Point{x: 0, y: 8}, Point{x: 1, y: 8}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}, Point{x: 1, y: 13}, Point{x: 1, y: 14}, Point{x: 1, y: 15}, Point{x: 1, y: 16}],
+        Point{x: 1, y: 16} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 0, y: 7}, Point{x: 0, y: 8}, Point{x: 0, y: 9}, Point{x: 1, y: 8}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}, Point{x: 1, y: 13}, Point{x: 1, y: 14}, Point{x: 1, y: 15}, Point{x: 1, y: 16}, Point{x: 1, y: 17}],
+        Point{x: 1, y: 17} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 0, y: 7}, Point{x: 0, y: 8}, Point{x: 0, y: 9}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}, Point{x: 1, y: 13}, Point{x: 1, y: 14}, Point{x: 1, y: 15}, Point{x: 1, y: 16}, Point{x: 1, y: 17}, Point{x: 1, y: 18}],
+        Point{x: 1, y: 18} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 0, y: 7}, Point{x: 0, y: 8}, Point{x: 0, y: 9}, Point{x: 0, y: 10}, Point{x: 1, y: 9}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}, Point{x: 1, y: 13}, Point{x: 1, y: 14}, Point{x: 1, y: 15}, Point{x: 1, y: 16}, Point{x: 1, y: 17}, Point{x: 1, y: 18}, Point{x: 1, y: 19}],
+        Point{x: 1, y: 19} => vec![Point{x: 0, y: 1}, Point{x: 0, y: 2}, Point{x: 0, y: 3}, Point{x: 0, y: 4}, Point{x: 0, y: 5}, Point{x: 0, y: 6}, Point{x: 0, y: 7}, Point{x: 0, y: 8}, Point{x: 0, y: 9}, Point{x: 0, y: 10}, Point{x: 1, y: 10}, Point{x: 1, y: 11}, Point{x: 1, y: 12}, Point{x: 1, y: 13}, Point{x: 1, y: 14}, Point{x: 1, y: 15}, Point{x: 1, y: 16}, Point{x: 1, y: 17}, Point{x: 1, y: 18}, Point{x: 1, y: 19}, Point{x: 1, y: 20}],
+        _ => unimplemented!()
     }
-    res
-}
-
-lazy_static! {
-    static ref HAND_BLOCKERS: FnvHashMap<Point, Vec<Point>> = hand_blockers();
 }
 
 type Zone = u8;
 const UNDECIDED_ZONE: Zone = !0;
 fn zone_char(zone: Zone) -> char {
     if zone < UNDECIDED_ZONE { (65 + zone) as char }
-    else { '-' } 
+    else { '-' }
 }
 
 pub struct Drone {
@@ -95,7 +104,7 @@ pub struct Drone {
 
 impl Drone {
     fn new(pos: Point) -> Drone {
-        Drone { pos, 
+        Drone { pos,
                 hands:  vec![Point::new(0,0), Point::new(1,-1), Point::new(1,0), Point::new(1,1)],
                 wheels: 0,
                 drill:  0,
@@ -212,10 +221,10 @@ impl Drone {
         let drill = self.drill > 0;
         if let Some((pos, new_wrapped, new_drilled)) = step(level, self, &self.pos, action, wheels, drill, &FnvHashSet::default()) {
             self.pos = pos;
-            match action { 
-                Action::UP    => self.path += "W", 
-                Action::DOWN  => self.path += "S", 
-                Action::LEFT  => self.path += "A", 
+            match action {
+                Action::UP    => self.path += "W",
+                Action::DOWN  => self.path += "S",
+                Action::LEFT  => self.path += "A",
                 Action::RIGHT => self.path += "D",
                 Action::JUMP0 => self.path += &format!("T({},{})", level.beakons[0].x, level.beakons[0].y),
                 Action::JUMP1 => self.path += &format!("T({},{})", level.beakons[1].x, level.beakons[1].y),
@@ -248,7 +257,7 @@ pub struct Level {
 }
 
 impl Level {
-    fn grid_idx(&self, x: isize, y: isize) -> usize {        
+    fn grid_idx(&self, x: isize, y: isize) -> usize {
         (x + y * self.width) as usize
     }
 
@@ -358,7 +367,7 @@ fn max_wrapping(level: &Level, drone: &Drone, pos: &Point) -> f64 {
 }
 
 fn is_reaching(level: &Level, from: &Point, hand: &Point) -> bool {
-    HAND_BLOCKERS.get(hand).unwrap().iter().all(|p| level.walkable(from.x+p.x, from.y+p.y))
+    hand_blocker(hand).iter().all(|p| level.walkable(from.x+p.x, from.y+p.y))
 }
 
 fn would_wrap(level: &Level, drone: &Drone, pos: &Point, wrapped: &mut FnvHashSet<Point>) {
@@ -457,7 +466,7 @@ fn explore_impl<F>(level: &Level, drone: &Drone, rate: F) -> Option<(VecDeque<Ac
             } else {
                 if score > 0. { best = Some((plan.clone(), pos, score)); }
             }
-            
+
             for action in &[Action::LEFT, Action::RIGHT, Action::UP, Action::DOWN, Action::JUMP0, Action::JUMP1, Action::JUMP2] {
                 if let Some((pos2, new_wrapped, new_drilled)) = step(level, drone, &pos, action, wheels > 0, drill > 0, &drilled) {
                     if seen.contains(&pos2) { continue; }
@@ -472,7 +481,7 @@ fn explore_impl<F>(level: &Level, drone: &Drone, rate: F) -> Option<(VecDeque<Ac
                         wheels:  if wheels > 1 { wheels - 1 } else { 0 },
                         drill:   if drill > 1  { drill - 1 }  else { 0 },
                         drilled: drilled2
-                    });    
+                    });
                 }
             }
         } else { break best }
@@ -529,7 +538,7 @@ fn solve_impl(level: &mut Level, drones: &mut Vec<Drone>, interactive: bool) -> 
             drone.collect(level);
             drone.wear_off();
             drone.choose_zone(&taken, level);
-            
+
             if drone.plan.is_empty() {
                 if let Some(clone) = drone.reduplicate(level) {
                     drones.push(clone);
@@ -548,7 +557,7 @@ fn solve_impl(level: &mut Level, drones: &mut Vec<Drone>, interactive: bool) -> 
                     drone.plan = plan;
                 }
             }
-            
+
             if let Some(action) = drone.plan.pop_front() {
                 drone.act(&action, level);
             } else if drone.wheels > 0 {
@@ -558,12 +567,12 @@ fn solve_impl(level: &mut Level, drones: &mut Vec<Drone>, interactive: bool) -> 
             }
         }
     }
-    
+
     if interactive {
         print_state(level, drones);
         println!("\x1B[?1049l");
     }
-    
+
     let paths: Vec<&str> = drones.iter().map(|d| d.path.as_str()).collect();
     paths.join("#")
 }
@@ -595,7 +604,7 @@ fn doall<T, F>(tasks: VecDeque<T>, threads: usize, f: F)
     for i in 0..threads {
         let m_queue = Arc::clone(&m_queue);
         let handle = thread::spawn(move || loop {
-            let o_task = { 
+            let o_task = {
                 let mut queue = m_queue.lock().unwrap();
                 queue.pop_front()
             };
@@ -620,19 +629,19 @@ fn main() {
     let mut interactive = false;
     let mut threads = 1;
     let mut filenames: VecDeque<String> = VecDeque::new();
-    
+
     for arg in args[1..].iter() {
         if arg == "--interactive" {
             interactive = true;
         } else if let Some(caps) = threads_re.captures(arg) {
             threads = caps.get(1).unwrap().as_str().parse::<isize>().unwrap() as usize;
-        } else if arg.ends_with(".desc") { 
+        } else if arg.ends_with(".desc") {
             filenames.push_back(arg.clone());
-        } else { 
+        } else {
             panic!("cargo run --release [--interactive] [--threads=N] <path/to/problem.desc>");
         }
     }
-    
+
     let tasks = filenames.len();
     doall(filenames, threads, move |f| solve(&f, interactive));
     if tasks > 1 {
