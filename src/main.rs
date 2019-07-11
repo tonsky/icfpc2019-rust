@@ -254,18 +254,18 @@ impl Level {
     }
 
     fn get_cell(&self, x: isize, y: isize) -> Cell {
-        assert!(x >= 0 && x < self.width && y >= 0 && y < self.height);
+        debug_assert!(x >= 0 && x < self.width && y >= 0 && y < self.height);
         self.grid[self.grid_idx(x, y)]
     }
 
     fn get_zone(&self, x: isize, y: isize) -> u8 {
-        assert!(x >= 0 && x < self.width && y >= 0 && y < self.height);
+        debug_assert!(x >= 0 && x < self.width && y >= 0 && y < self.height);
         self.zones[self.grid_idx(x, y)]
     }
 
     fn wrap_cell(&mut self, x: isize, y: isize) {
-        assert!(x >= 0 && x < self.width && y >= 0 && y < self.height);
-        assert!(self.get_cell(x, y) == Cell::EMPTY);
+        debug_assert!(x >= 0 && x < self.width && y >= 0 && y < self.height);
+        debug_assert!(self.get_cell(x, y) == Cell::EMPTY);
         let idx = self.grid_idx(x, y);
         self.empty -= 1;
         let zone = self.zones[idx];
@@ -276,8 +276,8 @@ impl Level {
     }
 
     fn drill_cell(&mut self, x: isize, y: isize) {
-        assert!(x >= 0 && x < self.width && y >= 0 && y < self.height);
-        assert!(self.get_cell(x, y) == Cell::BLOCKED);
+        debug_assert!(x >= 0 && x < self.width && y >= 0 && y < self.height);
+        debug_assert!(self.get_cell(x, y) == Cell::BLOCKED);
         let idx = self.grid_idx(x, y);
         self.grid[idx] = Cell::WRAPPED;
     }
