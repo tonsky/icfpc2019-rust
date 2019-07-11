@@ -1,7 +1,8 @@
 use lazy_static::lazy_static;
 use regex::{Regex, Captures};
 use std::cmp;
-use std::collections::{HashSet, HashMap, VecDeque};
+use std::collections::{VecDeque};
+use fnv::{FnvHashMap, FnvHashSet};
 use crate::{ Point, Line, Cell, Bonus, Drone, Level, UNDECIDED_ZONE };
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
@@ -33,9 +34,9 @@ fn parse_bonus(captures: Captures) -> (Point, Bonus) {
      })
 }
 
-fn parse_contour(s: &str) -> HashSet<Point> {
+fn parse_contour(s: &str) -> FnvHashSet<Point> {
     let points: Vec<Point> = POINT_RE.find_iter(s).map(|m| parse_point(m.as_str())).collect();
-    let mut walls: HashSet<Point> = HashSet::with_capacity(points.len());
+    let mut walls: FnvHashSet<Point> = FnvHashSet::with_capacity_and_hasher(points.len(), Default::default());
     for (i, &p1) in points.iter().enumerate() {
         let p2 = points[(i+1) % points.len()];
         if p1.x == p2.x { // vercical only
@@ -107,7 +108,7 @@ fn zones(zones_count: usize, grid: &[Cell], width: isize, height: isize) -> (Vec
     (zones, zones_empty)
 }
 
-fn build_level(walls: &HashSet<Point>, zones_count: usize) -> Level {
+fn build_level(walls: &FnvHashSet<Point>, zones_count: usize) -> Level {
     let height = walls.iter().max_by_key(|p| p.y).unwrap().y + 1;
     let width = walls.iter().max_by_key(|p| p.x).unwrap().x;
     let mut grid = Vec::with_capacity((width * height) as usize);
@@ -127,10 +128,10 @@ fn build_level(walls: &HashSet<Point>, zones_count: usize) -> Level {
     let (zones, zones_empty) = zones(zones_count, &grid, width, height);
     Level {
         grid, weights, zones, width, height, empty, zones_empty, 
-        spawns:    HashSet::new(),
+        spawns:    FnvHashSet::default(),
         beakons:   Vec::new(),
-        bonuses:   HashMap::new(),
-        collected: HashMap::new()
+        bonuses:   FnvHashMap::default(),
+        collected: FnvHashMap::default()
     }
 }
 

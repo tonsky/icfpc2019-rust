@@ -6,40 +6,49 @@ use std::{env, fs, io, thread, time};
 use std::cmp::{min, max};
 use std::fs::{File};
 use std::io::prelude::*;
-use std::collections::{HashSet, HashMap, VecDeque};
+use std::collections::{VecDeque};
 use std::time::{Instant};
 use std::sync::{Mutex, Arc};
+use std::hash::{Hash, Hasher};
+use fnv::{FnvHashMap, FnvHashSet};
 use regex::Regex;
 use lazy_static::lazy_static;
 
 const DELAY: u64 = 50;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Point { x: isize, y: isize }
 
 impl Point {
     fn new(x: isize, y: isize) -> Point { Point{ x, y } }
 }
 
+impl Hash for Point {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_i16(self.x as i16);
+        state.write_i16(self.y as i16);
+    }
+}
+
 #[derive(Debug)]
 struct Line { from: Point, to: Point }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Cell { EMPTY, BLOCKED, WRAPPED }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Action { UP, RIGHT, DOWN, LEFT, JUMP0, JUMP1, JUMP2 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Bonus { HAND, WHEELS, DRILL, TELEPORT, CLONE }
 
-fn get_or<K>(m: &HashMap<K, usize>, k: &K, default: usize) -> usize
+fn get_or<K>(m: &FnvHashMap<K, usize>, k: &K, default: usize) -> usize
     where K: std::hash::Hash + Eq + std::marker::Sized
 {
     if let Some(v) = m.get(k) { *v } else { default }
 }
 
-fn update<K>(m: &mut HashMap<K, usize>, k: K, delta: isize)
+fn update<K>(m: &mut FnvHashMap<K, usize>, k: K, delta: isize)
     where K: std::hash::Hash + Eq + std::marker::Sized
 {
     let old_v: usize = get_or(m, &k, 0);
@@ -48,8 +57,8 @@ fn update<K>(m: &mut HashMap<K, usize>, k: K, delta: isize)
     else { m.remove(&k); }
 }
 
-fn hand_blockers() -> HashMap<Point, Vec<Point>> {
-    let mut res = HashMap::new();
+fn hand_blockers() -> FnvHashMap<Point, Vec<Point>> {
+    let mut res = FnvHashMap::default();
     res.insert(Point::new(0,  0), vec![Point::new(0,  0)]);
     res.insert(Point::new(1, -1), vec![Point::new(1, -1)]);
     res.insert(Point::new(1,  0), vec![Point::new(1,  0)]);
@@ -64,7 +73,7 @@ fn hand_blockers() -> HashMap<Point, Vec<Point>> {
 }
 
 lazy_static! {
-    static ref HAND_BLOCKERS: HashMap<Point, Vec<Point>> = hand_blockers();
+    static ref HAND_BLOCKERS: FnvHashMap<Point, Vec<Point>> = hand_blockers();
 }
 
 type Zone = u8;
@@ -96,7 +105,7 @@ impl Drone {
     }
 
     fn wrap_bot(&self, level: &mut Level) {
-        let mut to_wrap: HashSet<Point> = HashSet::new();
+        let mut to_wrap: FnvHashSet<Point> = FnvHashSet::default();
         would_wrap(level, self, &self.pos, &mut to_wrap);
         for p in to_wrap {
             level.wrap_cell(p.x, p.y);
@@ -201,7 +210,7 @@ impl Drone {
     fn act(&mut self, action: &Action, level: &mut Level) {
         let wheels = self.wheels > 0;
         let drill = self.drill > 0;
-        if let Some((pos, new_wrapped, new_drilled)) = step(level, self, &self.pos, action, wheels, drill, &HashSet::new()) {
+        if let Some((pos, new_wrapped, new_drilled)) = step(level, self, &self.pos, action, wheels, drill, &FnvHashSet::default()) {
             self.pos = pos;
             match action { 
                 Action::UP    => self.path += "W", 
@@ -232,10 +241,10 @@ pub struct Level {
     height:      isize,
     empty:       usize,
     zones_empty: Vec<usize>,
-    spawns:      HashSet<Point>,
+    spawns:      FnvHashSet<Point>,
     beakons:     Vec<Point>,
-    bonuses:     HashMap<Point, Bonus>,
-    collected:   HashMap<Bonus, usize>
+    bonuses:     FnvHashMap<Point, Bonus>,
+    collected:   FnvHashMap<Bonus, usize>
 }
 
 impl Level {
@@ -335,14 +344,14 @@ struct Plan {
     pos:     Point,
     wheels:  usize,
     drill:   usize,
-    drilled: HashSet<Point>
+    drilled: FnvHashSet<Point>
 }
 
 fn max_wrapping(level: &Level, drone: &Drone, pos: &Point) -> f64 {
     if level.get_zone(pos.x, pos.y) != drone.zone { 0. }
     else if level.bonuses.contains_key(pos) { 100. }
     else {
-        let mut wrapped: HashSet<Point> = HashSet::new();
+        let mut wrapped: FnvHashSet<Point> = FnvHashSet::default();
         would_wrap(level, drone, pos, &mut wrapped);
         wrapped.iter().map(|p| 1.0_f64.max(level.weights[level.grid_idx(p.x, p.y)] as f64)).sum()
     }
@@ -352,7 +361,7 @@ fn is_reaching(level: &Level, from: &Point, hand: &Point) -> bool {
     HAND_BLOCKERS.get(hand).unwrap().iter().all(|p| level.walkable(from.x+p.x, from.y+p.y))
 }
 
-fn would_wrap(level: &Level, drone: &Drone, pos: &Point, wrapped: &mut HashSet<Point>) {
+fn would_wrap(level: &Level, drone: &Drone, pos: &Point, wrapped: &mut FnvHashSet<Point>) {
     for hand in &drone.hands {
         if is_reaching(level, pos, &hand) {
             let hand_pos = Point::new(pos.x + hand.x, pos.y + hand.y);
@@ -363,11 +372,11 @@ fn would_wrap(level: &Level, drone: &Drone, pos: &Point, wrapped: &mut HashSet<P
     }
 }
 
-fn step_move(level: &Level, drone: &Drone, from: &Point, dx: isize, dy: isize, wheels: bool, drill: bool, drilled: &HashSet<Point>) -> Option<(Point, HashSet<Point>, HashSet<Point>)>
+fn step_move(level: &Level, drone: &Drone, from: &Point, dx: isize, dy: isize, wheels: bool, drill: bool, drilled: &FnvHashSet<Point>) -> Option<(Point, FnvHashSet<Point>, FnvHashSet<Point>)>
 {
     let mut to = Point::new(from.x + dx, from.y + dy);
-    let mut new_wrapped = HashSet::new();
-    let mut new_drilled = HashSet::new();
+    let mut new_wrapped = FnvHashSet::default();
+    let mut new_drilled = FnvHashSet::default();
     if drilled.contains(&to) || (drill && level.valid(to.x, to.y)) || level.walkable(to.x, to.y) {
         would_wrap(level, drone, &to, &mut new_wrapped);
         if drill && !drilled.contains(&to) && !level.walkable(to.x, to.y) {
@@ -389,19 +398,19 @@ fn step_move(level: &Level, drone: &Drone, from: &Point, dx: isize, dy: isize, w
     }
 }
 
-fn step_jump(level: &Level, drone: &Drone, beakon_idx: usize) -> Option<(Point, HashSet<Point>, HashSet<Point>)>
+fn step_jump(level: &Level, drone: &Drone, beakon_idx: usize) -> Option<(Point, FnvHashSet<Point>, FnvHashSet<Point>)>
 {
     if beakon_idx < level.beakons.len() {
         let to = level.beakons[beakon_idx];
-        let mut new_wrapped = HashSet::new();
+        let mut new_wrapped = FnvHashSet::default();
         would_wrap(level, drone, &to, &mut new_wrapped);
-        Some((to, new_wrapped, HashSet::new()))
+        Some((to, new_wrapped, FnvHashSet::default()))
     } else {
         None
     }
 }
 
-fn step(level: &Level, drone: &Drone, from: &Point, action: &Action, wheels: bool, drill: bool, drilled: &HashSet<Point>) -> Option<(Point, HashSet<Point>, HashSet<Point>)> {
+fn step(level: &Level, drone: &Drone, from: &Point, action: &Action, wheels: bool, drill: bool, drilled: &FnvHashSet<Point>) -> Option<(Point, FnvHashSet<Point>, FnvHashSet<Point>)> {
     match action {
         Action::LEFT  => step_move(level, drone, from, -1,  0, wheels, drill, drilled),
         Action::RIGHT => step_move(level, drone, from,  1,  0, wheels, drill, drilled),
@@ -422,7 +431,7 @@ fn explore<F>(level: &Level, drone: &Drone, rate: F) -> Option<VecDeque<Action>>
 fn explore_impl<F>(level: &Level, drone: &Drone, rate: F) -> Option<(VecDeque<Action>, Point, f64)>
     where F: Fn(&Level, &Drone, &Point) -> f64
 {
-    let mut seen: HashSet<Point> = HashSet::new();
+    let mut seen: FnvHashSet<Point> = FnvHashSet::default();
     let mut queue: VecDeque<Plan> = VecDeque::with_capacity(100);
     let mut best: Option<(VecDeque<Action>, Point, f64)> = None;
     let mut max_len = 5;
@@ -430,7 +439,7 @@ fn explore_impl<F>(level: &Level, drone: &Drone, rate: F) -> Option<(VecDeque<Ac
                          pos:     drone.pos,
                          wheels:  drone.wheels,
                          drill:   drone.drill,
-                         drilled: HashSet::new() });
+                         drilled: FnvHashSet::default() });
     loop {
         if let Some(Plan{plan, pos, wheels, drill, drilled}) = queue.pop_front() {
             if plan.len() >= max_len {

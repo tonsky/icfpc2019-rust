@@ -10,6 +10,7 @@ regex = "1"
 lazy_static = "1"
 rand_pcg = "0.2"
 rand = "0.7"
+fnv = "1.0.6"
 
 [profile.release]
 opt-level = 3
