@@ -34,7 +34,7 @@ Compared to [github.com/tonsky/icfpc2019](https://github.com/tonsky/icfpc2019).
 
 Test machine: MacBook Pro (15-inch, 2018), 2.6 GHz Core i7, 6 cores w/ Hyper-Threading, 16 GB 2400 MHz DDR4, macOS 10.14.5.
 
-Utilizing twelve threads:
+Baseline algorithm, utilizing twelve threads (`contest`):
 
 | Solution                     | Time, min | Time, ms   | Relative speed |
 |------------------------------|-----------|------------|----------------|
@@ -51,6 +51,12 @@ Utilizing single thread:
 |------------------------------|-----------|------------|----------------|
 | Rust baseline                | 4.2 min   | 251625 ms  | x3.7           |
 | Rust + FNV hash              | 2 min     | 124356 ms  | x7.45          |
+
+Further improvements (`master`):
+
+| Solution                     | Time, min | Time, ms   | Relative speed |
+|------------------------------|-----------|------------|----------------|
+| Rust + blockers vector       | 0.41 min  | 24892 ms   | x37.2          | 
 
 
 (time: lower is better, speed: bigger is better)
