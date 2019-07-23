@@ -2,4 +2,4 @@
 
 cargo build --release
 
-./target/release/icfpc2019 problems/*.desc --threads 12
+./target/release/icfpc2019 problems/*.desc --threads=12
